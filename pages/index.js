@@ -327,7 +327,7 @@ export default function Home(){
               </nav>
             </div>
 
-            {/* Right: Dark Mode + User */}
+            {/* Right: Dark Mode + User + Login/Logout */}
             <div className="flex items-center gap-2">
               {/* Dark Mode Toggle - Smaller */}
               <button
@@ -342,18 +342,38 @@ export default function Home(){
                 <span className="text-lg">{darkMode ? '☀️' : '🌙'}</span>
               </button>
               
-              {/* User Info - Compact */}
-              {session?.user && (
-                <div className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-1.5 backdrop-blur-sm border border-white/10">
-                  <img 
-                    src={session.user.image} 
-                    alt="avatar" 
-                    className="w-8 h-8 rounded-full ring-2 ring-[#D2C1B6]" 
-                  />
-                  <div className="hidden md:block">
-                    <p className="text-sm font-medium text-white leading-tight">{session.user.name?.split(' ')[0]}</p>
+              {/* User Info & Auth Buttons */}
+              {session?.user ? (
+                <>
+                  <div className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-1.5 backdrop-blur-sm border border-white/10">
+                    <img 
+                      src={session.user.image} 
+                      alt="avatar" 
+                      className="w-8 h-8 rounded-full ring-2 ring-[#D2C1B6]" 
+                    />
+                    <div className="hidden md:block">
+                      <p className="text-sm font-medium text-white leading-tight">{session.user.name?.split(' ')[0]}</p>
+                    </div>
                   </div>
-                </div>
+                  {/* Logout Button */}
+                  <button
+                    onClick={() => signOut()}
+                    className="hidden lg:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg"
+                    title="Đăng xuất"
+                  >
+                    <span>🚪</span>
+                    <span>Đăng xuất</span>
+                  </button>
+                </>
+              ) : (
+                /* Login Button when not authenticated */
+                <Link
+                  href="/auth"
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#D2C1B6] to-[#456882] hover:from-[#456882] hover:to-[#234C6A] text-white rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg"
+                >
+                  <span>🔐</span>
+                  <span>Đăng nhập</span>
+                </Link>
               )}
             </div>
           </div>
