@@ -22,7 +22,9 @@ export default async function handler(req, res) {
   if (session?.accessToken) {
     try {
       // Get or create spreadsheet automatically
+      console.log('🔄 [EXPENSES API] Getting or creating spreadsheet...')
       const spreadsheetId = await getOrCreateSpreadsheet(session.accessToken, session.user.email)
+      console.log(`✅ [EXPENSES API] Using spreadsheet: ${spreadsheetId}`)
       
       if (method === 'GET') {
         const expenses = await getExpensesFromSheet(session.accessToken, spreadsheetId)
