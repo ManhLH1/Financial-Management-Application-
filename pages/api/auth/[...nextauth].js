@@ -8,8 +8,8 @@ export const authOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       authorization: {
         params: {
-          // Xin quyền truy cập Google Sheets để tự động tạo và quản lý spreadsheet
-          scope: 'openid email profile https://www.googleapis.com/auth/spreadsheets',
+          // Xin quyền truy cập Google Sheets + Drive để tự động tạo và tìm kiếm spreadsheet
+          scope: 'openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file',
           prompt: 'consent',
           access_type: 'offline',
           response_type: 'code'

@@ -106,12 +106,12 @@ export async function getOrCreateSpreadsheet(accessToken, userEmail) {
         return existingId
       }
       
-      // Create new spreadsheet with FIXED name (no date) for easy searching
+      // Create new spreadsheet
       const sheets = getSheetsClient(accessToken)
       const response = await sheets.spreadsheets.create({
         resource: {
           properties: {
-            title: `FinTrack - ${userEmail}`,
+            title: `FinTrack - ${userEmail} - ${new Date().toISOString().split('T')[0]}`,
           },
           sheets: [
             {
