@@ -5,6 +5,10 @@ import { Doughnut, Bar, Line } from 'react-chartjs-2'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement } from 'chart.js'
 import Notification, { useNotification } from '../components/Notification'
 import Header from '../components/Header'
+import MobileHeader from '../components/MobileHeader'
+import MobileBottomNav from '../components/MobileBottomNav'
+import MobileSummaryCard from '../components/MobileSummaryCard'
+import { useIsMobile, formatMobileCurrency } from '../lib/mobileHelpers'
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement)
 
@@ -279,14 +283,24 @@ export default function Home(){
 
   return (
     <div className={`min-h-screen ${bgClass} transition-all duration-500`}>
-      {/* Header */}
-      <Header 
-        title="Dashboard"
-        subtitle="Tổng quan tài chính"
+      {/* Desktop Header */}
+      <div className="hidden lg:block">
+        <Header 
+          title="Dashboard"
+          subtitle="Tổng quan tài chính"
+          icon="📊"
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
+          showDarkModeToggle={true}
+        />
+      </div>
+
+      {/* Mobile Header */}
+      <MobileHeader
+        title="Tổng quan"
         icon="📊"
         darkMode={darkMode}
         setDarkMode={setDarkMode}
-        showDarkModeToggle={true}
       />
 
       {/* Notification */}
@@ -299,7 +313,7 @@ export default function Home(){
         />
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-0 sm:px-4 lg:px-8 py-4 lg:py-8">
         {/* Cache Info - Hidden for cleaner UI */}
 
         {/* Quick Actions */}
@@ -341,8 +355,8 @@ export default function Home(){
           </button>
         </div>
 
-        {/* Stats Cards - Compact Design */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* Stats Cards - Desktop Version */}
+        <div className="hidden lg:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {/* Total Income */}
           <div className={`rounded-xl shadow-lg p-4 text-white transform hover:scale-105 transition-all duration-300 ${
             darkMode 
@@ -402,6 +416,53 @@ export default function Home(){
             <p className="text-2xl font-bold mb-0.5">{stats.totalDebt.toLocaleString('vi-VN')}đ</p>
             <p className="text-xs opacity-80">{stats.debtCount} khoản</p>
           </div>
+        </div>
+
+        {/* Stats Cards - Mobile Version (Optimized with formatMobileCurrency) */}
+        <div className="lg:hidden grid grid-cols-2 gap-3 mb-6 px-4">
+          <MobileSummaryCard
+            icon="💰"
+            label="Thu nhập"
+            value={`${formatMobileCurrency(stats.totalIncome)}đ`}
+            subtitle={`${stats.incomeCount} giao dịch`}
+            gradient={darkMode 
+              ? 'bg-gradient-to-br from-emerald-600 to-teal-700' 
+              : 'bg-gradient-to-br from-green-500 to-green-600'}
+          />
+          
+          <MobileSummaryCard
+            icon="💸"
+            label="Chi tiêu"
+            value={`${formatMobileCurrency(stats.totalExpense)}đ`}
+            subtitle={`${stats.expenseCount} giao dịch`}
+            gradient={darkMode 
+              ? 'bg-gradient-to-br from-rose-600 to-pink-700' 
+              : 'bg-gradient-to-br from-red-500 to-red-600'}
+          />
+          
+          <MobileSummaryCard
+            icon="💵"
+            label="Số dư"
+            value={`${formatMobileCurrency(stats.balance)}đ`}
+            subtitle={stats.balance >= 0 ? 'Dương' : 'Âm'}
+            gradient={stats.balance >= 0 
+              ? darkMode 
+                ? 'bg-gradient-to-br from-blue-600 to-cyan-700' 
+                : 'bg-gradient-to-br from-blue-500 to-blue-600'
+              : darkMode
+                ? 'bg-gradient-to-br from-orange-600 to-amber-700'
+                : 'bg-gradient-to-br from-orange-500 to-orange-600'}
+          />
+          
+          <MobileSummaryCard
+            icon="📝"
+            label="Khoản nợ"
+            value={`${formatMobileCurrency(stats.totalDebt)}đ`}
+            subtitle={`${stats.debtCount} khoản`}
+            gradient={darkMode 
+              ? 'bg-gradient-to-br from-purple-600 to-indigo-700' 
+              : 'bg-gradient-to-br from-purple-500 to-purple-600'}
+          />
         </div>
 
         {/* Charts - Enhanced */}
@@ -553,6 +614,9 @@ export default function Home(){
           </div>
         </div>
       </footer>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav />
     </div>
   )
 }

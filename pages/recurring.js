@@ -5,11 +5,16 @@ import Link from 'next/link'
 import Notification, { useNotification } from '../components/Notification'
 import Footer from '../components/Footer'
 import Header from '../components/Header'
+import MobileHeader from '../components/MobileHeader'
+import MobileBottomNav from '../components/MobileBottomNav'
+import MobileFloatingButton from '../components/MobileFloatingButton'
+import { formatMobileCurrency, vibrateOnAction } from '../lib/mobileHelpers'
 
 export default function RecurringExpenses() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [recurring, setRecurring] = useState([])
+  const [upcomingReminders, setUpcomingReminders] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   
   // Initialize dark mode from localStorage (with SSR safety)
@@ -62,6 +67,7 @@ export default function RecurringExpenses() {
       router.push('/auth')
     } else if (status === 'authenticated') {
       fetchRecurring()
+      fetchUpcomingReminders()
     }
   }, [status, router])
 
@@ -73,6 +79,39 @@ export default function RecurringExpenses() {
       setRecurring(data.recurringExpenses || [])
     } catch (error) {
       console.error('Error fetching recurring expenses:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function fetchUpcomingReminders() {
+    try {
+      const res = await fetch('/api/recurring-reminders')
+      const data = await res.json()
+      if (data.success) {
+        setUpcomingReminders(data.upcoming || [])
+      }
+    } catch (error) {
+      console.error('Error fetching upcoming reminders:', error)
+    }
+  }
+
+  async function sendTestReminder() {
+    setIsLoading(true)
+    try {
+      const res = await fetch('/api/recurring-reminders', {
+        method: 'POST'
+      })
+      const data = await res.json()
+      
+      if (data.success) {
+        showNotification(`✅ Đã gửi ${data.reminders.length} email nhắc nhở!`, 'success')
+        fetchUpcomingReminders()
+      } else {
+        showNotification('❌ Không thể gửi email nhắc nhở', 'error')
+      }
+    } catch (error) {
+      showNotification('❌ Lỗi gửi email: ' + error.message, 'error')
     } finally {
       setIsLoading(false)
     }
@@ -203,14 +242,24 @@ export default function RecurringExpenses() {
 
   return (
     <div className={`min-h-screen ${bgClass} transition-all duration-500`}>
-      {/* Header */}
-      <Header 
-        title="Chi tiêu Định kỳ"
-        subtitle="Quản lý hóa đơn và chi phí lặp lại"
+      {/* Desktop Header */}
+      <div className="hidden lg:block">
+        <Header 
+          title="Chi tiêu Định kỳ"
+          subtitle="Quản lý hóa đơn và chi phí lặp lại"
+          icon="🔄"
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
+          showDarkModeToggle={true}
+        />
+      </div>
+
+      {/* Mobile Header */}
+      <MobileHeader
+        title="Định kỳ"
         icon="🔄"
         darkMode={darkMode}
         setDarkMode={setDarkMode}
-        showDarkModeToggle={true}
       />
 
       {notification && (
@@ -222,7 +271,7 @@ export default function RecurringExpenses() {
         />
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-0 sm:px-4 lg:px-8 py-4 lg:py-8 pb-20 lg:pb-8">
         {/* Form */}
         <div className={`rounded-2xl shadow-lg p-6 mb-8 ${cardBgClass}`}>
           <h2 className={`text-xl font-bold mb-4 ${
@@ -341,12 +390,108 @@ export default function RecurringExpenses() {
           </form>
         </div>
 
+        {/* Upcoming Reminders Section */}
+        {upcomingReminders.length > 0 && (
+          <div className={`rounded-2xl shadow-lg p-6 mb-6 border-2 ${
+            darkMode 
+              ? 'bg-gradient-to-br from-amber-900/20 to-orange-900/20 border-amber-700' 
+              : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300'
+          }`}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className={`text-xl font-bold flex items-center gap-2 ${
+                darkMode ? 'text-amber-400' : 'text-amber-700'
+              }`}>
+                🔔 Sắp đến hạn
+                <span className={`text-sm px-2 py-1 rounded-full ${
+                  darkMode ? 'bg-amber-700 text-white' : 'bg-amber-200 text-amber-800'
+                }`}>
+                  {upcomingReminders.length}
+                </span>
+              </h2>
+              <button
+                onClick={sendTestReminder}
+                disabled={isLoading}
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                  darkMode
+                    ? 'bg-amber-700 hover:bg-amber-600 text-white'
+                    : 'bg-amber-600 hover:bg-amber-700 text-white'
+                } disabled:opacity-50`}
+              >
+                📧 Gửi email nhắc nhở
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              {upcomingReminders.map((item) => {
+                const urgency = item.daysUntilDue <= 1 ? 'urgent' : item.daysUntilDue <= 3 ? 'warning' : 'info'
+                const urgencyColors = {
+                  urgent: darkMode 
+                    ? 'bg-red-900/30 border-red-700 text-red-300' 
+                    : 'bg-red-50 border-red-300 text-red-800',
+                  warning: darkMode 
+                    ? 'bg-amber-900/30 border-amber-700 text-amber-300' 
+                    : 'bg-amber-50 border-amber-300 text-amber-800',
+                  info: darkMode 
+                    ? 'bg-blue-900/30 border-blue-700 text-blue-300' 
+                    : 'bg-blue-50 border-blue-300 text-blue-800'
+                }
+
+                return (
+                  <div 
+                    key={item.id}
+                    className={`p-4 rounded-lg border-2 ${urgencyColors[urgency]} transition-all duration-200`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-base mb-1">{item.title}</h3>
+                        <p className="text-sm opacity-80">
+                          💰 {item.amount.toLocaleString('vi-VN')}đ • {item.category}
+                        </p>
+                        <p className="text-sm opacity-80 mt-1">
+                          📅 Đến hạn: {new Date(item.nextDue).toLocaleDateString('vi-VN')}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <div className={`text-2xl font-bold ${
+                          urgency === 'urgent' ? 'animate-pulse' : ''
+                        }`}>
+                          {item.daysUntilDue}
+                        </div>
+                        <div className="text-xs opacity-80">ngày nữa</div>
+                        {item.reminderSent && (
+                          <div className="mt-2 text-xs">
+                            ✅ Đã nhắc
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className={`mt-4 p-3 rounded-lg ${
+              darkMode ? 'bg-slate-800' : 'bg-white'
+            }`}>
+              <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                💡 <strong>Nhắc nhở tự động:</strong> Bạn sẽ nhận email nhắc nhở trước 3 ngày khi chi tiêu định kỳ sắp đến hạn.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Recurring List */}
-        <div className="bg-white rounded-2xl shadow-lg p-6">
-          <h2 className="text-xl font-bold mb-6 text-[#1B3C53]">📋 Danh sách chi tiêu định kỳ</h2>
+        <div className={`rounded-2xl shadow-lg p-6 ${cardBgClass}`}>
+          <h2 className={`text-xl font-bold mb-6 ${
+            darkMode ? 'text-orange-400' : 'text-[#1B3C53]'
+          }`}>
+            📋 Danh sách chi tiêu định kỳ
+          </h2>
           
           {isLoading && (
-            <div className="text-center py-8 text-gray-500">Đang tải...</div>
+            <div className={`text-center py-8 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Đang tải...
+            </div>
           )}
 
           {!isLoading && recurring.length === 0 && (
@@ -430,6 +575,30 @@ export default function RecurringExpenses() {
       </div>
 
       <Footer />
+
+      {/* Mobile Floating Action Button */}
+      <MobileFloatingButton
+        icon="➕"
+        label={editingId ? "Hủy" : "Thêm mới"}
+        onClick={() => {
+          vibrateOnAction()
+          if (editingId) {
+            setEditingId(null)
+            setForm({
+              name: '',
+              amount: '',
+              frequency: 'monthly',
+              startDate: new Date().toISOString().split('T')[0],
+              isActive: true
+            })
+          }
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        }}
+        color={editingId ? "red" : "green"}
+      />
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav />
     </div>
   )
 }

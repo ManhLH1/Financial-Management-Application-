@@ -4,6 +4,10 @@ import { useRouter } from 'next/router'
 import Link from 'next/link'
 import Notification, { useNotification } from '../components/Notification'
 import Header from '../components/Header'
+import MobileHeader from '../components/MobileHeader'
+import MobileBottomNav from '../components/MobileBottomNav'
+import MobileFloatingButton from '../components/MobileFloatingButton'
+import { formatMobileCurrency, vibrateOnAction } from '../lib/mobileHelpers'
 
 export default function Debts(){
   const { data: session, status } = useSession()
@@ -332,19 +336,29 @@ export default function Debts(){
         />
       )}
 
-      {/* Header */}
-      <Header 
-        title="Quản lý Khoản nợ"
-        subtitle="Theo dõi cho vay/mượn"
+      {/* Desktop Header */}
+      <div className="hidden lg:block">
+        <Header 
+          title="Quản lý Khoản nợ"
+          subtitle="Theo dõi cho vay/mượn"
+          icon="📝"
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
+          showDarkModeToggle={true}
+        />
+      </div>
+
+      {/* Mobile Header */}
+      <MobileHeader
+        title="Khoản nợ"
         icon="📝"
         darkMode={darkMode}
         setDarkMode={setDarkMode}
-        showDarkModeToggle={true}
       />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="max-w-7xl mx-auto px-0 sm:px-4 lg:px-8 py-4 lg:py-8 pb-20 lg:pb-8">
+        {/* Desktop Stats Cards */}
+        <div className="hidden md:grid grid-cols-4 gap-6 mb-8">
           <div className={`rounded-2xl shadow-2xl p-6 text-white transform hover:scale-105 transition-all duration-300 ${
             darkMode 
               ? 'bg-gradient-to-br from-blue-600 to-cyan-700 shadow-blue-500/30' 
@@ -403,6 +417,78 @@ export default function Debts(){
             </div>
             <p className="text-3xl font-bold">{notes.length}</p>
             <p className={darkMode ? 'text-purple-100 text-sm mt-2' : 'text-[#1B3C53]/70 text-sm mt-2'}>Khoản nợ</p>
+          </div>
+        </div>
+
+        {/* Mobile Stats Cards */}
+        <div className="md:hidden grid grid-cols-2 gap-3 px-3 mb-6">
+          {/* Tổng nợ chưa trả */}
+          <div className={`rounded-xl shadow-lg p-4 text-white active:scale-95 transition-transform ${
+            darkMode 
+              ? 'bg-gradient-to-br from-blue-600 to-cyan-700' 
+              : 'bg-gradient-to-br from-[#234C6A] to-[#1B3C53]'
+          }`}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-medium opacity-90 truncate">Nợ chưa trả</p>
+              <span className="text-xl">💳</span>
+            </div>
+            <p className="text-xl font-bold truncate" title={`${totalDebt.toLocaleString('vi-VN')}đ`}>
+              {formatMobileCurrency(totalDebt)}
+            </p>
+            <p className="text-xs mt-1 opacity-80">{pendingCount} khoản</p>
+          </div>
+
+          {/* Đã thanh toán */}
+          <div className={`rounded-xl shadow-lg p-4 text-white active:scale-95 transition-transform ${
+            darkMode 
+              ? 'bg-gradient-to-br from-emerald-600 to-teal-700' 
+              : 'bg-gradient-to-br from-[#456882] to-[#234C6A]'
+          }`}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-medium opacity-90 truncate">Đã trả</p>
+              <span className="text-xl">✅</span>
+            </div>
+            <p className="text-xl font-bold truncate" title={`${paidDebt.toLocaleString('vi-VN')}đ`}>
+              {formatMobileCurrency(paidDebt)}
+            </p>
+            <p className="text-xs mt-1 opacity-80">{notes.length - pendingCount} khoản</p>
+          </div>
+
+          {/* Cảnh báo */}
+          <div className={`rounded-xl shadow-lg p-4 text-white active:scale-95 transition-transform ${
+            darkMode 
+              ? urgentWarnings > 0 ? 'bg-gradient-to-br from-rose-600 to-pink-700' : 
+                normalWarnings > 0 ? 'bg-gradient-to-br from-orange-500 to-amber-600' : 
+                'bg-gradient-to-br from-emerald-500 to-teal-600'
+              : urgentWarnings > 0 ? 'bg-gradient-to-br from-red-600 to-red-700' : 
+                normalWarnings > 0 ? 'bg-gradient-to-br from-orange-500 to-orange-600' : 
+                'bg-gradient-to-br from-green-500 to-green-600'
+          }`}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-medium opacity-90 truncate">Cảnh báo</p>
+              <span className="text-xl">{urgentWarnings > 0 ? '🚨' : normalWarnings > 0 ? '⏰' : '✅'}</span>
+            </div>
+            <p className="text-xl font-bold">{urgentWarnings + normalWarnings}</p>
+            <p className="text-xs mt-1 opacity-80 truncate">
+              {urgentWarnings > 0 && `${urgentWarnings} khẩn`}
+              {urgentWarnings > 0 && normalWarnings > 0 && ' • '}
+              {normalWarnings > 0 && `${normalWarnings} bình thường`}
+              {urgentWarnings === 0 && normalWarnings === 0 && 'An toàn'}
+            </p>
+          </div>
+
+          {/* Tổng giao dịch */}
+          <div className={`rounded-xl shadow-lg p-4 active:scale-95 transition-transform ${
+            darkMode 
+              ? 'bg-gradient-to-br from-purple-600 to-indigo-700 text-white' 
+              : 'bg-gradient-to-br from-[#D2C1B6] to-[#D2C1B6]/80 text-[#1B3C53]'
+          }`}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-medium opacity-90 truncate">Giao dịch</p>
+              <span className="text-xl">📊</span>
+            </div>
+            <p className="text-xl font-bold">{notes.length}</p>
+            <p className="text-xs mt-1 opacity-80">Khoản nợ</p>
           </div>
         </div>
 
@@ -777,6 +863,20 @@ export default function Debts(){
           </div>
         </div>
       </footer>
+
+      {/* Mobile Floating Action Button */}
+      <MobileFloatingButton
+        icon="➕"
+        label="Thêm nợ"
+        onClick={() => {
+          vibrateOnAction()
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        }}
+        color="purple"
+      />
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav />
     </div>
   )
 }

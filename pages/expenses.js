@@ -4,6 +4,12 @@ import { useRouter } from 'next/router'
 import Link from 'next/link'
 import Notification, { useNotification } from '../components/Notification'
 import Header from '../components/Header'
+import MobileHeader from '../components/MobileHeader'
+import MobileBottomNav from '../components/MobileBottomNav'
+import MobileSummaryCard from '../components/MobileSummaryCard'
+import MobileTransactionItem from '../components/MobileTransactionItem'
+import MobileFloatingButton from '../components/MobileFloatingButton'
+import { useIsMobile, vibrateOnAction, formatMobileCurrency } from '../lib/mobileHelpers'
 
 // Category icons and color helpers (kept small and readable)
 const expenseCategories = {
@@ -322,21 +328,31 @@ export default function Expenses(){
 
   return (
     <div className={`min-h-screen ${bgClass} transition-all duration-500`}>
-      {/* Header */}
-      <Header 
-        title="Quản lý Chi tiêu"
-        subtitle="Theo dõi và quản lý chi tiêu"
+      {/* Desktop Header */}
+      <div className="hidden lg:block">
+        <Header 
+          title="Quản lý Chi tiêu"
+          subtitle="Theo dõi và quản lý chi tiêu"
+          icon="💰"
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
+          showDarkModeToggle={true}
+        />
+      </div>
+
+      {/* Mobile Header */}
+      <MobileHeader
+        title="Chi tiêu"
         icon="💰"
         darkMode={darkMode}
         setDarkMode={setDarkMode}
-        showDarkModeToggle={true}
       />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-0 sm:px-4 lg:px-8 py-4 lg:py-8 pb-20 lg:pb-8">
         {/* Cache Info - Hidden for cleaner UI */}
 
-        {/* Stats Cards - Compact */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        {/* Stats Cards - Desktop */}
+        <div className="hidden lg:grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 px-4 lg:px-0">
           <div className={`rounded-xl shadow-lg p-4 text-white transform hover:scale-105 transition-all duration-300 ${
             darkMode 
               ? 'bg-gradient-to-br from-rose-600 to-pink-700' 
@@ -396,8 +412,55 @@ export default function Expenses(){
           </div>
         </div>
 
+        {/* Stats Cards - Mobile (2x2 grid) - With formatMobileCurrency */}
+        <div className="lg:hidden grid grid-cols-2 gap-3 mb-6 px-4">
+          <MobileSummaryCard
+            icon="💸"
+            label="Chi tiêu"
+            value={`${formatMobileCurrency(totalExpense)}đ`}
+            subtitle={`${expenses.length} giao dịch`}
+            gradient={darkMode 
+              ? 'bg-gradient-to-br from-rose-600 to-pink-700' 
+              : 'bg-gradient-to-br from-red-500 to-red-600'}
+          />
+          
+          <MobileSummaryCard
+            icon="💰"
+            label="Thu nhập"
+            value={`${formatMobileCurrency(totalIncome)}đ`}
+            subtitle={`${incomes.length} giao dịch`}
+            gradient={darkMode 
+              ? 'bg-gradient-to-br from-emerald-600 to-teal-700' 
+              : 'bg-gradient-to-br from-green-500 to-green-600'}
+          />
+          
+          <MobileSummaryCard
+            icon={balance >= 0 ? '📊' : '⚠️'}
+            label="Số dư"
+            value={`${formatMobileCurrency(balance)}đ`}
+            subtitle={balance >= 0 ? 'Dương' : 'Âm'}
+            gradient={darkMode 
+              ? balance >= 0 
+                ? 'bg-gradient-to-br from-blue-600 to-cyan-700' 
+                : 'bg-gradient-to-br from-orange-500 to-amber-600'
+              : balance >= 0 
+                ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
+                : 'bg-gradient-to-br from-orange-500 to-orange-600'}
+          />
+          
+          <MobileSummaryCard
+            icon={categoryIcons[topCategory] || '📦'}
+            label="Top"
+            value={topCategory || 'Chưa có'}
+            subtitle={`${items.filter(i => i.category === topCategory).length} giao dịch`}
+            gradient={darkMode 
+              ? 'bg-gradient-to-br from-purple-600 to-indigo-700' 
+              : 'bg-gradient-to-br from-purple-500 to-purple-600'}
+          />
+        </div>
+
         {/* Main Content */}
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid lg:grid-cols-3 gap-8 px-4 lg:px-0">
           {/* Form Add Expense/Income */}
           <div className="lg:col-span-1">
             <div className={`rounded-2xl shadow-2xl p-6 sticky top-24 ${
@@ -778,8 +841,8 @@ export default function Expenses(){
         </div>
       </div>
 
-      {/* Footer - Compact */}
-      <footer className={darkMode ? 'bg-slate-900 border-t border-slate-700' : 'bg-[#1B3C53] border-t border-[#234C6A]'}>
+      {/* Footer - Compact (Hidden on mobile) */}
+      <footer className={`hidden lg:block ${darkMode ? 'bg-slate-900 border-t border-slate-700' : 'bg-[#1B3C53] border-t border-[#234C6A]'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="text-center">
             <p className="text-[#D2C1B6] text-sm">
@@ -788,6 +851,33 @@ export default function Expenses(){
           </div>
         </div>
       </footer>
+
+      {/* Mobile Floating Action Button */}
+      <MobileFloatingButton
+        icon="➕"
+        label={editingId ? "Hủy" : "Thêm mới"}
+        onClick={() => {
+          vibrateOnAction()
+          if (editingId) {
+            setEditingId(null)
+            setForm({
+              title: '',
+              amount: '',
+              category: 'Ăn uống',
+              date: new Date().toISOString().split('T')[0],
+              type: 'expense',
+              customCategory: ''
+            })
+          } else {
+            // Scroll to form
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }
+        }}
+        color={editingId ? "red" : "blue"}
+      />
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav />
     </div>
   )
 }

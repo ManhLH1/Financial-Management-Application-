@@ -5,6 +5,9 @@ import Link from 'next/link'
 import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js'
 import Header from '../components/Header'
+import MobileHeader from '../components/MobileHeader'
+import MobileBottomNav from '../components/MobileBottomNav'
+import { formatMobileCurrency } from '../lib/mobileHelpers'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
@@ -105,17 +108,27 @@ export default function BudgetDashboard() {
 
   return (
     <div className={`min-h-screen ${bgClass} transition-all duration-500`}>
-      {/* Header */}
-      <Header 
-        title="Ngân sách hàng tháng"
-        subtitle="Tổng quan chi tiêu và thu nhập"
+      {/* Desktop Header */}
+      <div className="hidden lg:block">
+        <Header 
+          title="Ngân sách hàng tháng"
+          subtitle="Tổng quan chi tiêu và thu nhập"
+          icon="📋"
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
+          showDarkModeToggle={true}
+        />
+      </div>
+
+      {/* Mobile Header */}
+      <MobileHeader
+        title="Ngân sách"
         icon="📋"
         darkMode={darkMode}
         setDarkMode={setDarkMode}
-        showDarkModeToggle={true}
       />
 
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto px-0 sm:px-4 lg:px-6 py-4 lg:py-6 pb-20 lg:pb-6">
         {/* Loading State */}
         {(status === 'loading' || loading) && (
           <div className="flex items-center justify-center min-h-[60vh]">
@@ -314,7 +327,7 @@ export default function BudgetDashboard() {
                     <tr>
                       <td colSpan="4" className="px-3 py-4 text-center text-gray-400">
                         Xem chi tiết tại trang Expenses và Debts
-                      </td>
+                        </td>
                     </tr>
                   </tbody>
                 </table>
@@ -332,6 +345,9 @@ export default function BudgetDashboard() {
         </div>
         )}
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav />
     </div>
   )
 }
