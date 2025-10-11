@@ -192,19 +192,19 @@ export default function RecurringExpenses() {
 
     setIsLoading(true)
     try {
-      const res = await fetch('/api/recurring-expenses', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
+      const res = await fetch(`/api/recurring-expenses?id=${id}`, {
+        method: 'DELETE'
       })
 
       if (res.ok) {
         showNotification('✅ Xóa thành công!', 'success')
         await fetchRecurring()
       } else {
-        showNotification('❌ Không thể xóa', 'error')
+        const data = await res.json()
+        showNotification(`❌ ${data.error || 'Không thể xóa'}`, 'error')
       }
     } catch (error) {
+      console.error('Delete error:', error)
       showNotification('❌ Có lỗi xảy ra', 'error')
     } finally {
       setIsLoading(false)

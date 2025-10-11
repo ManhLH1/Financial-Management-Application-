@@ -132,7 +132,26 @@ export default async function handler(req, res) {
 
     if (req.method === 'DELETE') {
       // Delete recurring expense
-      const { id } = req.body
+      const { id } = req.query
+
+      if (!id) {
+        return res.status(400).json({ error: 'ID is required' })
+      }
+
+      // Get sheet metadata to find RecurringExpenses sheetId
+      const spreadsheet = await sheets.spreadsheets.get({
+        spreadsheetId
+      })
+
+      const recurringSheet = spreadsheet.data.sheets.find(
+        sheet => sheet.properties.title === SHEET_NAME
+      )
+
+      if (!recurringSheet) {
+        return res.status(404).json({ error: 'RecurringExpenses sheet not found' })
+      }
+
+      const sheetId = recurringSheet.properties.sheetId
 
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
@@ -140,7 +159,7 @@ export default async function handler(req, res) {
       })
 
       const rows = response.data.values || []
-      const rowIndex = rows.findIndex(row => row[0] === id)
+      const rowIndex = rows.findIndex(row => row[0] === String(id))
 
       if (rowIndex === -1) {
         return res.status(404).json({ error: 'Recurring expense not found' })
@@ -152,7 +171,7 @@ export default async function handler(req, res) {
           requests: [{
             deleteDimension: {
               range: {
-                sheetId: 0,
+                sheetId: sheetId,
                 dimension: 'ROWS',
                 startIndex: rowIndex + 1,
                 endIndex: rowIndex + 2
@@ -161,6 +180,8 @@ export default async function handler(req, res) {
           }]
         }
       })
+
+      console.log(`✅ Deleted recurring expense: ${id}`)
 
       return res.status(200).json({ 
         success: true, 
