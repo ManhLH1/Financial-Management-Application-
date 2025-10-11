@@ -3,6 +3,7 @@ import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
 import Notification, { useNotification } from '../components/Notification'
+import Header from '../components/Header'
 
 // Category icons (same as expenses)
 const categoryIcons = {
@@ -36,11 +37,30 @@ export default function TransactionHistory() {
   const [debts, setDebts] = useState([])
   const [loading, setLoading] = useState(true)
   
+  // Initialize dark mode from localStorage (with SSR safety)
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('darkMode')
+      return saved ? JSON.parse(saved) : false
+    }
+    return false
+  })
+  
   // Filter states with current date default
   const [dateFrom, setDateFrom] = useState(new Date().toISOString().split('T')[0])
   const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0])
   const [typeFilter, setTypeFilter] = useState('all') // all, expense, income, debt
   const [searchTerm, setSearchTerm] = useState('')
+
+  // Sync document class and save to localStorage
+  useEffect(() => {
+    localStorage.setItem('darkMode', JSON.stringify(darkMode))
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }, [darkMode])
 
   useEffect(() => {
     if (status === 'loading') return
@@ -50,7 +70,8 @@ export default function TransactionHistory() {
     }
     
     fetchData()
-  }, [session, status, router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, status])
 
   const fetchData = async () => {
     try {
@@ -154,83 +175,91 @@ export default function TransactionHistory() {
     return '-' // expense
   }
 
-  if (status === 'loading' || loading) {
-    return (
-      <div className="min-h-screen bg-[#F5F3F1] flex items-center justify-center">
-        <div className="text-[#1B3C53]">Đang tải...</div>
-      </div>
-    )
-  }
+  const bgClass = darkMode 
+    ? 'bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900' 
+    : 'bg-[#F5F3F1]'
+
+  const cardBgClass = darkMode 
+    ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700' 
+    : 'bg-white border-gray-200'
+
+  const textClass = darkMode ? 'text-gray-100' : 'text-gray-900'
 
   return (
-    <div className="min-h-screen bg-[#F5F3F1] dark:bg-gray-900">
+    <div className={`min-h-screen ${bgClass} transition-all duration-500`}>
       <Notification />
       
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-[#D2C1B6]/30">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href="/dashboard-advanced" className="text-[#456882] hover:text-[#1B3C53] transition-colors">
-                ← Quay lại
-              </Link>
-              <h1 className="text-2xl font-bold text-[#1B3C53] dark:text-white">Lịch sử giao dịch</h1>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <span className="text-sm text-[#456882] dark:text-gray-400">
-                {session?.user?.email}
-              </span>
-              <button 
-                onClick={() => signOut()} 
-                className="px-3 py-1 text-sm bg-[#456882] text-white rounded hover:bg-[#1B3C53] transition-colors"
-              >
-                Đăng xuất
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Header 
+        title="Lịch sử giao dịch"
+        subtitle="Xem tất cả giao dịch"
+        icon="📜"
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        showDarkModeToggle={true}
+      />
 
       <div className="max-w-4xl mx-auto px-4 py-6">
+        {/* Loading State */}
+        {(status === 'loading' || loading) && (
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className={textClass}>Đang tải dữ liệu...</div>
+          </div>
+        )}
+
+        {/* Main Content */}
+        {!loading && (
+        <>
         {/* Filters */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-[#D2C1B6]/30 p-4 mb-6">
+        <div className={`${cardBgClass} rounded-lg shadow-sm border p-4 mb-6`}>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Date From */}
             <div>
-              <label className="block text-sm font-medium text-[#1B3C53] dark:text-white mb-1">
+              <label className={`block text-sm font-medium mb-1 ${textClass}`}>
                 Từ ngày
               </label>
               <input
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full px-3 py-2 border border-[#D2C1B6] rounded-md text-[#1B3C53] dark:text-white dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-[#456882] focus:border-transparent"
+                className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-[#456882] focus:border-transparent ${
+                  darkMode 
+                    ? 'bg-slate-700 border-slate-600 text-white' 
+                    : 'bg-white border-[#D2C1B6] text-[#1B3C53]'
+                }`}
               />
             </div>
             
             {/* Date To */}
             <div>
-              <label className="block text-sm font-medium text-[#1B3C53] dark:text-white mb-1">
+              <label className={`block text-sm font-medium mb-1 ${textClass}`}>
                 Đến ngày
               </label>
               <input
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="w-full px-3 py-2 border border-[#D2C1B6] rounded-md text-[#1B3C53] dark:text-white dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-[#456882] focus:border-transparent"
+                className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-[#456882] focus:border-transparent ${
+                  darkMode 
+                    ? 'bg-slate-700 border-slate-600 text-white' 
+                    : 'bg-white border-[#D2C1B6] text-[#1B3C53]'
+                }`}
               />
             </div>
             
             {/* Type Filter */}
             <div>
-              <label className="block text-sm font-medium text-[#1B3C53] dark:text-white mb-1">
+              <label className={`block text-sm font-medium mb-1 ${textClass}`}>
                 Loại giao dịch
               </label>
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-[#D2C1B6] rounded-md text-[#1B3C53] dark:text-white dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-[#456882] focus:border-transparent"
+                className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-[#456882] focus:border-transparent ${
+                  darkMode 
+                    ? 'bg-slate-700 border-slate-600 text-white' 
+                    : 'bg-white border-[#D2C1B6] text-[#1B3C53]'
+                }`}
               >
                 <option value="all">Tất cả</option>
                 <option value="expense">Chi tiêu</option>
@@ -241,7 +270,7 @@ export default function TransactionHistory() {
             
             {/* Search */}
             <div>
-              <label className="block text-sm font-medium text-[#1B3C53] dark:text-white mb-1">
+              <label className={`block text-sm font-medium mb-1 ${textClass}`}>
                 Tìm kiếm
               </label>
               <input
@@ -249,7 +278,11 @@ export default function TransactionHistory() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Tìm theo tên, danh mục..."
-                className="w-full px-3 py-2 border border-[#D2C1B6] rounded-md text-[#1B3C53] dark:text-white dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-[#456882] focus:border-transparent"
+                className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-[#456882] focus:border-transparent ${
+                  darkMode 
+                    ? 'bg-slate-700 border-slate-600 text-white placeholder-gray-400' 
+                    : 'bg-white border-[#D2C1B6] text-[#1B3C53] placeholder-gray-500'
+                }`}
               />
             </div>
           </div>
@@ -313,12 +346,14 @@ export default function TransactionHistory() {
             }
             
             return (
-              <div key={type} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-[#D2C1B6]/30 p-4">
-                <div className="text-sm text-gray-600 dark:text-gray-400">{labels[type]}</div>
+              <div key={type} className={`${cardBgClass} rounded-lg shadow-sm border p-4`}>
+                <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {labels[type]}
+                </div>
                 <div className={`text-lg font-semibold ${colors[type]}`}>
                   {formatCurrency(Math.abs(total))}
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-500">
+                <div className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
                   {typeTransactions.length} giao dịch
                 </div>
               </div>
@@ -329,22 +364,22 @@ export default function TransactionHistory() {
         {/* Transaction List */}
         <div className="space-y-3">
           {filteredTransactions.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <div className={`text-center py-8 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
               Không có giao dịch nào trong khoảng thời gian này
             </div>
           ) : (
             filteredTransactions.map(transaction => (
-              <div key={`${transaction.source}-${transaction.id}`} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-[#D2C1B6]/30 p-4">
+              <div key={`${transaction.source}-${transaction.id}`} className={`${cardBgClass} rounded-lg shadow-sm border p-4`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <div className="text-xl">
                       {categoryIcons[transaction.category] || '📦'}
                     </div>
                     <div>
-                      <div className="font-medium text-[#1B3C53] dark:text-white">
+                      <div className={`font-medium ${textClass}`}>
                         {transaction.title}
                       </div>
-                      <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                      <div className={`flex items-center space-x-2 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                         <span className={`inline-block px-2 py-1 rounded text-xs ${categoryColors[transaction.category] || 'bg-gray-100 text-gray-800 border-gray-300'} border`}>
                           {transaction.category}
                         </span>
@@ -366,6 +401,8 @@ export default function TransactionHistory() {
             ))
           )}
         </div>
+        </>
+        )}
       </div>
     </div>
   )

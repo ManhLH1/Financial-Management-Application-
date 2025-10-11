@@ -3,6 +3,7 @@ import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
 import Notification, { useNotification } from '../components/Notification'
+import Header from '../components/Header'
 
 export default function Debts(){
   const { data: session, status } = useSession()
@@ -11,7 +12,14 @@ export default function Debts(){
   const [isLoading, setIsLoading] = useState(false)
   const { notification, showNotification, hideNotification } = useNotification()
   const [lastFetchTime, setLastFetchTime] = useState(0)
-  const [darkMode, setDarkMode] = useState(false)
+  // Initialize dark mode from localStorage (with SSR safety)
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('darkMode')
+      return saved ? JSON.parse(saved) : false
+    }
+    return false
+  })
   const [form, setForm] = useState({ 
     person: '', 
     amount: '', 
@@ -24,17 +32,14 @@ export default function Debts(){
     paidPeriods: 0
   })
 
-  // Load dark mode preference from localStorage on mount
+  // Sync document class and save to localStorage
   useEffect(() => {
-    const savedDarkMode = localStorage.getItem('darkMode')
-    if (savedDarkMode === 'true') {
-      setDarkMode(true)
+    localStorage.setItem('darkMode', JSON.stringify(darkMode))
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
     }
-  }, [])
-
-  // Save dark mode preference to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('darkMode', darkMode.toString())
   }, [darkMode])
 
   // Load from cache on mount
@@ -327,128 +332,15 @@ export default function Debts(){
         />
       )}
 
-      {/* Header - Optimized & Compact */}
-      <header className={darkMode 
-        ? 'bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 shadow-2xl border-b border-slate-700' 
-        : 'bg-gradient-to-r from-[#1B3C53] via-[#234C6A] to-[#1B3C53] shadow-xl'
-      }>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            {/* Left: Logo + Title + Navigation */}
-            <div className="flex items-center gap-6">
-              {/* Logo & Title - Compact */}
-              <div className="flex items-center gap-3">
-                <div className="bg-white/10 p-2 rounded-lg backdrop-blur-sm">
-                  <span className="text-2xl">📝</span>
-                </div>
-                <div className="hidden sm:block">
-                  <h1 className="text-xl font-bold text-white">Quản lý Khoản nợ</h1>
-                  <p className="text-[#D2C1B6] text-xs">Theo dõi cho vay/mượn</p>
-                </div>
-              </div>
-
-              {/* Navigation - Inline */}
-              <nav className="hidden lg:flex items-center gap-2">
-                <Link 
-                  href="/" 
-                  className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all duration-200 text-sm font-medium border border-white/10 hover:border-white/20"
-                >
-                  <span>📊</span>
-                  <span>Dashboard</span>
-                </Link>
-                <Link 
-                  href="/expenses" 
-                  className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all duration-200 text-sm font-medium border border-white/10 hover:border-white/20"
-                >
-                  <span>💰</span>
-                  <span>Chi tiêu</span>
-                </Link>
-                <Link 
-                  href="/debts" 
-                  className="flex items-center gap-1.5 px-3 py-2 bg-[#456882] text-white rounded-lg text-sm font-medium border-2 border-[#D2C1B6] shadow-lg"
-                >
-                  <span>📝</span>
-                  <span>Khoản nợ</span>
-                </Link>
-              </nav>
-            </div>
-
-            {/* Right: Dark Mode + User */}
-            <div className="flex items-center gap-2">
-              {/* Dark Mode Toggle - Smaller */}
-              <button
-                onClick={() => setDarkMode(!darkMode)}
-                className={`p-2 rounded-lg transition-all duration-300 hover:scale-105 ${
-                  darkMode 
-                    ? 'bg-gradient-to-br from-yellow-400 to-orange-400 shadow-md shadow-yellow-500/20' 
-                    : 'bg-gradient-to-br from-indigo-500 to-purple-600 shadow-md shadow-purple-500/20'
-                }`}
-                title={darkMode ? 'Chế độ sáng' : 'Chế độ tối'}
-              >
-                <span className="text-lg">{darkMode ? '☀️' : '🌙'}</span>
-              </button>
-              
-              {/* User Info - Compact */}
-              {session?.user && (
-                <div className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-1.5 backdrop-blur-sm border border-white/10">
-                  <img 
-                    src={session.user.image} 
-                    alt="avatar" 
-                    className="w-8 h-8 rounded-full ring-2 ring-[#D2C1B6]" 
-                  />
-                  <div className="hidden md:block">
-                    <p className="text-sm font-medium text-white leading-tight">{session.user.name?.split(' ')[0]}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Mobile Navigation - Below header */}
-          <nav className="lg:hidden flex items-center gap-2 mt-3 pt-3 border-t border-white/10">
-            <Link 
-              href="/" 
-              className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all duration-200 text-sm font-medium border border-white/10"
-            >
-              <span>📊</span>
-              <span>Dashboard</span>
-            </Link>
-            <Link 
-              href="/expenses" 
-              className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all duration-200 text-sm font-medium border border-white/10"
-            >
-              <span>💰</span>
-              <span>Chi tiêu</span>
-            </Link>
-            <Link 
-              href="/debts" 
-              className="flex items-center gap-1.5 px-3 py-2 bg-[#456882] text-white rounded-lg text-sm font-medium border-2 border-[#D2C1B6] shadow-lg"
-            >
-              <span>📝</span>
-              <span>Khoản nợ</span>
-            </Link>
-
-            {/* Logout/Login button on mobile */}
-            {session ? (
-              <button 
-                onClick={() => signOut()}
-                className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg text-sm font-medium ml-auto"
-              >
-                <span>🚪</span>
-                <span>Thoát</span>
-              </button>
-            ) : (
-              <Link 
-                href="/auth"
-                className="flex items-center gap-1.5 px-3 py-2 bg-[#D2C1B6] text-[#1B3C53] rounded-lg text-sm font-medium ml-auto"
-              >
-                <span>🔐</span>
-                <span>Đăng nhập</span>
-              </Link>
-            )}
-          </nav>
-        </div>
-      </header>
+      {/* Header */}
+      <Header 
+        title="Quản lý Khoản nợ"
+        subtitle="Theo dõi cho vay/mượn"
+        icon="📝"
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        showDarkModeToggle={true}
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}

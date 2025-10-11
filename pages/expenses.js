@@ -3,6 +3,7 @@ import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
 import Notification, { useNotification } from '../components/Notification'
+import Header from '../components/Header'
 
 // Category icons and color helpers (kept small and readable)
 const expenseCategories = {
@@ -51,17 +52,18 @@ export default function Expenses(){
   const [isLoading, setIsLoading] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null)
   const [deleteReason, setDeleteReason] = useState('')
-  const [darkMode, setDarkMode] = useState(false)
+  // Initialize dark mode from localStorage (with SSR safety)
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('darkMode')
+      return saved ? JSON.parse(saved) : false
+    }
+    return false
+  })
   const [lastFetchTime, setLastFetchTime] = useState(0)
   const { notification, showNotification, hideNotification } = useNotification()
 
-  // Load dark mode preference
-  useEffect(() => {
-    const saved = localStorage.getItem('darkMode')
-    if (saved) setDarkMode(JSON.parse(saved))
-  }, [])
-
-  // Save dark mode preference
+  // Sync document class and save to localStorage
   useEffect(() => {
     localStorage.setItem('darkMode', JSON.stringify(darkMode))
     if (darkMode) {
@@ -320,180 +322,75 @@ export default function Expenses(){
 
   return (
     <div className={`min-h-screen ${bgClass} transition-all duration-500`}>
-      {/* Header - Optimized & Compact */}
-      <header className={darkMode 
-        ? 'bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 shadow-2xl border-b border-slate-700' 
-        : 'bg-gradient-to-r from-[#1B3C53] via-[#234C6A] to-[#1B3C53] shadow-xl'
-      }>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            {/* Left: Logo + Title + Navigation */}
-            <div className="flex items-center gap-6">
-              {/* Logo & Title - Compact */}
-              <div className="flex items-center gap-3">
-                <div className="bg-white/10 p-2 rounded-lg backdrop-blur-sm">
-                  <span className="text-2xl">💰</span>
-                </div>
-                <div className="hidden sm:block">
-                  <h1 className="text-xl font-bold text-white">Quản lý Chi tiêu</h1>
-                  <p className="text-[#D2C1B6] text-xs">Theo dõi và quản lý chi tiêu</p>
-                </div>
-              </div>
-
-              {/* Navigation - Inline */}
-              <nav className="hidden lg:flex items-center gap-2">
-                <Link 
-                  href="/" 
-                  className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all duration-200 text-sm font-medium border border-white/10 hover:border-white/20"
-                >
-                  <span>📊</span>
-                  <span>Dashboard</span>
-                </Link>
-                <Link 
-                  href="/expenses" 
-                  className="flex items-center gap-1.5 px-3 py-2 bg-[#456882] text-white rounded-lg text-sm font-medium border-2 border-[#D2C1B6] shadow-lg"
-                >
-                  <span>💰</span>
-                  <span>Chi tiêu</span>
-                </Link>
-                <Link 
-                  href="/debts" 
-                  className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all duration-200 text-sm font-medium border border-white/10 hover:border-white/20"
-                >
-                  <span>📝</span>
-                  <span>Khoản nợ</span>
-                </Link>
-              </nav>
-            </div>
-
-            {/* Right: Dark Mode + User */}
-            <div className="flex items-center gap-2">
-              {/* Dark Mode Toggle - Smaller */}
-              <button
-                onClick={() => setDarkMode(!darkMode)}
-                className={`p-2 rounded-lg transition-all duration-300 hover:scale-105 ${
-                  darkMode 
-                    ? 'bg-gradient-to-br from-yellow-400 to-orange-400 shadow-md shadow-yellow-500/20' 
-                    : 'bg-gradient-to-br from-indigo-500 to-purple-600 shadow-md shadow-purple-500/20'
-                }`}
-                title={darkMode ? 'Chế độ sáng' : 'Chế độ tối'}
-              >
-                <span className="text-lg">{darkMode ? '☀️' : '🌙'}</span>
-              </button>
-              
-              {/* User Info - Compact */}
-              {session?.user && (
-                <div className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-1.5 backdrop-blur-sm border border-white/10">
-                  <img 
-                    src={session.user.image} 
-                    alt="avatar" 
-                    className="w-8 h-8 rounded-full ring-2 ring-[#D2C1B6]" 
-                  />
-                  <div className="hidden md:block">
-                    <p className="text-sm font-medium text-white leading-tight">{session.user.name?.split(' ')[0]}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Mobile Navigation - Below header */}
-          <nav className="lg:hidden flex items-center gap-2 mt-3 pt-3 border-t border-white/10">
-            <Link 
-              href="/" 
-              className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all duration-200 text-sm font-medium border border-white/10"
-            >
-              <span>📊</span>
-              <span>Dashboard</span>
-            </Link>
-            <Link 
-              href="/expenses" 
-              className="flex items-center gap-1.5 px-3 py-2 bg-[#456882] text-white rounded-lg text-sm font-medium border-2 border-[#D2C1B6] shadow-lg"
-            >
-              <span>💰</span>
-              <span>Chi tiêu</span>
-            </Link>
-            <Link 
-              href="/debts" 
-              className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all duration-200 text-sm font-medium border border-white/10"
-            >
-              <span>📝</span>
-              <span>Khoản nợ</span>
-            </Link>
-
-            {/* Logout button on mobile */}
-            {session && (
-              <button 
-                onClick={() => signOut()}
-                className="ml-auto flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all text-sm font-medium border border-white/20"
-              >
-                <span>🚪</span>
-                <span>Đăng xuất</span>
-              </button>
-            )}
-          </nav>
-        </div>
-      </header>
+      {/* Header */}
+      <Header 
+        title="Quản lý Chi tiêu"
+        subtitle="Theo dõi và quản lý chi tiêu"
+        icon="💰"
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        showDarkModeToggle={true}
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Cache Info - Hidden for cleaner UI */}
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className={`rounded-2xl shadow-2xl p-6 text-white transform hover:scale-105 transition-all duration-300 ${
+        {/* Stats Cards - Compact */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className={`rounded-xl shadow-lg p-4 text-white transform hover:scale-105 transition-all duration-300 ${
             darkMode 
-              ? 'bg-gradient-to-br from-rose-600 to-pink-700 shadow-rose-500/30' 
+              ? 'bg-gradient-to-br from-rose-600 to-pink-700' 
               : 'bg-gradient-to-br from-red-500 to-red-600'
           }`}>
             <div className="flex items-center justify-between mb-2">
-              <p className={darkMode ? 'text-rose-100 text-sm font-medium' : 'text-red-100 text-sm font-medium'}>Tổng chi tiêu</p>
-              <span className="text-3xl">💸</span>
+              <p className="text-xs font-medium opacity-90">Tổng chi tiêu</p>
+              <span className="text-2xl">💸</span>
             </div>
-            <p className="text-3xl font-bold">{totalExpense.toLocaleString('vi-VN')}đ</p>
-            <p className={darkMode ? 'text-rose-100 text-sm mt-2' : 'text-red-100 text-sm mt-2'}>{expenses.length} giao dịch</p>
+            <p className="text-2xl font-bold mb-0.5">{totalExpense.toLocaleString('vi-VN')}đ</p>
+            <p className="text-xs opacity-80">{expenses.length} giao dịch</p>
           </div>
 
-          <div className={`rounded-2xl shadow-2xl p-6 text-white transform hover:scale-105 transition-all duration-300 ${
+          <div className={`rounded-xl shadow-lg p-4 text-white transform hover:scale-105 transition-all duration-300 ${
             darkMode 
-              ? 'bg-gradient-to-br from-emerald-600 to-teal-700 shadow-emerald-500/30' 
+              ? 'bg-gradient-to-br from-emerald-600 to-teal-700' 
               : 'bg-gradient-to-br from-green-500 to-green-600'
           }`}>
             <div className="flex items-center justify-between mb-2">
-              <p className={darkMode ? 'text-emerald-100 text-sm font-medium' : 'text-green-100 text-sm font-medium'}>Tổng thu nhập</p>
-              <span className="text-3xl">💰</span>
+              <p className="text-xs font-medium opacity-90">Tổng thu nhập</p>
+              <span className="text-2xl">💰</span>
             </div>
-            <p className="text-3xl font-bold">{totalIncome.toLocaleString('vi-VN')}đ</p>
-            <p className={darkMode ? 'text-emerald-100 text-sm mt-2' : 'text-green-100 text-sm mt-2'}>{incomes.length} giao dịch</p>
+            <p className="text-2xl font-bold mb-0.5">{totalIncome.toLocaleString('vi-VN')}đ</p>
+            <p className="text-xs opacity-80">{incomes.length} giao dịch</p>
           </div>
 
-          <div className={`rounded-2xl shadow-2xl p-6 text-white transform hover:scale-105 transition-all duration-300 ${
+          <div className={`rounded-xl shadow-lg p-4 text-white transform hover:scale-105 transition-all duration-300 ${
             darkMode 
               ? balance >= 0 
-                ? 'bg-gradient-to-br from-blue-600 to-cyan-700 shadow-blue-500/30' 
-                : 'bg-gradient-to-br from-orange-500 to-amber-600 shadow-orange-500/30'
+                ? 'bg-gradient-to-br from-blue-600 to-cyan-700' 
+                : 'bg-gradient-to-br from-orange-500 to-amber-600'
               : balance >= 0 
                 ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
                 : 'bg-gradient-to-br from-orange-500 to-orange-600'
           }`}>
             <div className="flex items-center justify-between mb-2">
-              <p className={darkMode ? 'text-blue-100 text-sm font-medium' : 'text-blue-100 text-sm font-medium'}>Số dư</p>
-              <span className="text-3xl">{balance >= 0 ? '📊' : '⚠️'}</span>
+              <p className="text-xs font-medium opacity-90">Số dư</p>
+              <span className="text-2xl">{balance >= 0 ? '📊' : '⚠️'}</span>
             </div>
-            <p className="text-3xl font-bold">{balance.toLocaleString('vi-VN')}đ</p>
-            <p className={darkMode ? 'text-blue-100 text-sm mt-2' : 'text-blue-100 text-sm mt-2'}>{balance >= 0 ? 'Dương' : 'Âm'}</p>
+            <p className="text-2xl font-bold mb-0.5">{balance.toLocaleString('vi-VN')}đ</p>
+            <p className="text-xs opacity-80">{balance >= 0 ? 'Dương' : 'Âm'}</p>
           </div>
 
-          <div className={`rounded-2xl shadow-2xl p-6 text-white transform hover:scale-105 transition-all duration-300 ${
+          <div className={`rounded-xl shadow-lg p-4 text-white transform hover:scale-105 transition-all duration-300 ${
             darkMode 
-              ? 'bg-gradient-to-br from-purple-600 to-indigo-700 shadow-purple-500/30' 
+              ? 'bg-gradient-to-br from-purple-600 to-indigo-700' 
               : 'bg-gradient-to-br from-purple-500 to-purple-600'
           }`}>
             <div className="flex items-center justify-between mb-2">
-              <p className={darkMode ? 'text-purple-100 text-sm font-medium' : 'text-purple-100 text-sm font-medium'}>Danh mục top</p>
-              <span className="text-3xl">{categoryIcons[topCategory] || '📦'}</span>
+              <p className="text-xs font-medium opacity-90">Danh mục top</p>
+              <span className="text-2xl">{categoryIcons[topCategory] || '📦'}</span>
             </div>
-            <p className="text-2xl font-bold truncate">{topCategory || 'Chưa có'}</p>
-            <p className={darkMode ? 'text-purple-100 text-sm mt-2' : 'text-purple-100 text-sm mt-2'}>
+            <p className="text-2xl font-bold truncate mb-0.5">{topCategory || 'Chưa có'}</p>
+            <p className="text-xs opacity-80">
               {items.filter(i => i.category === topCategory).length} giao dịch
             </p>
           </div>

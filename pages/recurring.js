@@ -4,12 +4,23 @@ import { useRouter } from 'next/router'
 import Link from 'next/link'
 import Notification, { useNotification } from '../components/Notification'
 import Footer from '../components/Footer'
+import Header from '../components/Header'
 
 export default function RecurringExpenses() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [recurring, setRecurring] = useState([])
   const [isLoading, setIsLoading] = useState(false)
+  
+  // Initialize dark mode from localStorage (with SSR safety)
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('darkMode')
+      return saved ? JSON.parse(saved) : false
+    }
+    return false
+  })
+  
   const { notification, showNotification, hideNotification } = useNotification()
   
   const [form, setForm] = useState({
@@ -35,6 +46,16 @@ export default function RecurringExpenses() {
     { value: 'monthly', label: '📅 Hàng tháng' },
     { value: 'yearly', label: '📅 Hàng năm' }
   ]
+
+  // Sync document class and save to localStorage
+  useEffect(() => {
+    localStorage.setItem('darkMode', JSON.stringify(darkMode))
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }, [darkMode])
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -169,86 +190,28 @@ export default function RecurringExpenses() {
     return <div>Loading...</div>
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-[#D2C1B6]/20 via-white to-[#456882]/10">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-[#1B3C53] via-[#234C6A] to-[#1B3C53] shadow-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-5">
-            <div className="flex items-center gap-4">
-              <div className="bg-white/10 p-3 rounded-xl backdrop-blur-sm">
-                <span className="text-3xl">🔄</span>
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-white">Chi tiêu Định kỳ</h1>
-                <p className="text-[#D2C1B6] text-sm mt-1">Quản lý hóa đơn và chi phí lặp lại</p>
-              </div>
-            </div>
-            
-            {session?.user && (
-              <div className="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-2 backdrop-blur-sm border border-white/10">
-                <img 
-                  src={session.user.image} 
-                  alt="avatar" 
-                  className="w-10 h-10 rounded-full ring-2 ring-[#D2C1B6]" 
-                />
-                <div className="hidden md:block">
-                  <p className="text-sm font-semibold text-white">{session.user.name}</p>
-                  <p className="text-xs text-[#D2C1B6]">{session.user.email}</p>
-                </div>
-              </div>
-            )}
-          </div>
+  const bgClass = darkMode 
+    ? 'bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900' 
+    : 'bg-gradient-to-br from-[#D2C1B6]/20 via-white to-[#456882]/10'
+  
+  const cardBgClass = darkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white'
+  const textClass = darkMode ? 'text-gray-100' : 'text-gray-900'
+  const labelClass = darkMode ? 'text-gray-300' : 'text-gray-700'
+  const inputClass = darkMode 
+    ? 'bg-slate-700 border-slate-600 text-white focus:ring-orange-500 focus:border-orange-500' 
+    : 'border-2 border-[#D2C1B6] focus:ring-2 focus:ring-[#234C6A] focus:border-transparent'
 
-          <nav className="flex items-center justify-between pb-4 border-t border-white/10 pt-4">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Link 
-                href="/" 
-                className="group flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all duration-200 font-medium border border-white/10 hover:border-white/20"
-              >
-                <span className="text-lg">📊</span>
-                <span className="hidden sm:inline">Dashboard</span>
-              </Link>
-              <Link 
-                href="/expenses" 
-                className="group flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all duration-200 font-medium border border-white/10 hover:border-white/20"
-              >
-                <span className="text-lg">💰</span>
-                <span className="hidden sm:inline">Chi tiêu</span>
-              </Link>
-              <Link 
-                href="/debts" 
-                className="group flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all duration-200 font-medium border border-white/10 hover:border-white/20"
-              >
-                <span className="text-lg">📝</span>
-                <span className="hidden sm:inline">Khoản nợ</span>
-              </Link>
-              <Link 
-                href="/budgets" 
-                className="group flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all duration-200 font-medium border border-white/10 hover:border-white/20"
-              >
-                <span className="text-lg">💰</span>
-                <span className="hidden sm:inline">Ngân sách</span>
-              </Link>
-              <Link 
-                href="/recurring" 
-                className="group flex items-center gap-2 px-4 py-2.5 bg-[#456882] text-white rounded-lg font-medium border-2 border-[#D2C1B6] shadow-lg"
-              >
-                <span className="text-lg">🔄</span>
-                <span className="hidden sm:inline">Định kỳ</span>
-              </Link>
-            </div>
-            
-            <button 
-              onClick={() => signOut()}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 font-medium border border-white/20 hover:border-white/40"
-            >
-              <span>🚪</span>
-              <span className="hidden sm:inline">Đăng xuất</span>
-            </button>
-          </nav>
-        </div>
-      </header>
+  return (
+    <div className={`min-h-screen ${bgClass} transition-all duration-500`}>
+      {/* Header */}
+      <Header 
+        title="Chi tiêu Định kỳ"
+        subtitle="Quản lý hóa đơn và chi phí lặp lại"
+        icon="🔄"
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        showDarkModeToggle={true}
+      />
 
       {notification && (
         <Notification
@@ -261,42 +224,44 @@ export default function RecurringExpenses() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Form */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-          <h2 className="text-xl font-bold mb-4 text-[#1B3C53]">
+        <div className={`rounded-2xl shadow-lg p-6 mb-8 ${cardBgClass}`}>
+          <h2 className={`text-xl font-bold mb-4 ${
+            darkMode ? 'text-orange-400' : 'text-[#1B3C53]'
+          }`}>
             {editingId ? '✏️ Chỉnh sửa chi tiêu định kỳ' : '➕ Thêm chi tiêu định kỳ'}
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Tiêu đề *</label>
+                <label className={`block text-sm font-medium mb-2 ${labelClass}`}>Tiêu đề *</label>
                 <input
                   type="text"
                   value={form.title}
                   onChange={(e) => setForm({...form, title: e.target.value})}
-                  className="w-full px-4 py-2 border-2 border-[#D2C1B6] rounded-lg focus:ring-2 focus:ring-[#234C6A] focus:border-transparent"
+                  className={`w-full px-4 py-2 rounded-lg ${inputClass}`}
                   placeholder="Hóa đơn điện"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Số tiền (VND) *</label>
+                <label className={`block text-sm font-medium mb-2 ${labelClass}`}>Số tiền (VND) *</label>
                 <input
                   type="number"
                   value={form.amount}
                   onChange={(e) => setForm({...form, amount: e.target.value})}
-                  className="w-full px-4 py-2 border-2 border-[#D2C1B6] rounded-lg focus:ring-2 focus:ring-[#234C6A] focus:border-transparent"
+                  className={`w-full px-4 py-2 rounded-lg ${inputClass}`}
                   placeholder="500000"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Danh mục</label>
+                <label className={`block text-sm font-medium mb-2 ${labelClass}`}>Danh mục</label>
                 <select
                   value={form.category}
                   onChange={(e) => setForm({...form, category: e.target.value})}
-                  className="w-full px-4 py-2 border-2 border-[#D2C1B6] rounded-lg focus:ring-2 focus:ring-[#234C6A] focus:border-transparent"
+                  className={`w-full px-4 py-2 rounded-lg ${inputClass}`}
                 >
                   {categories.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
@@ -307,11 +272,11 @@ export default function RecurringExpenses() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Tần suất</label>
+                <label className={`block text-sm font-medium mb-2 ${labelClass}`}>Tần suất</label>
                 <select
                   value={form.frequency}
                   onChange={(e) => setForm({...form, frequency: e.target.value})}
-                  className="w-full px-4 py-2 border-2 border-[#D2C1B6] rounded-lg focus:ring-2 focus:ring-[#234C6A] focus:border-transparent"
+                  className={`w-full px-4 py-2 rounded-lg ${inputClass}`}
                 >
                   {frequencies.map(freq => (
                     <option key={freq.value} value={freq.value}>{freq.label}</option>
@@ -321,25 +286,25 @@ export default function RecurringExpenses() {
 
               {form.frequency === 'monthly' && (
                 <div>
-                  <label className="block text-sm font-medium mb-2">Ngày trong tháng</label>
+                  <label className={`block text-sm font-medium mb-2 ${labelClass}`}>Ngày trong tháng</label>
                   <input
                     type="number"
                     min="1"
                     max="31"
                     value={form.dayOfMonth}
                     onChange={(e) => setForm({...form, dayOfMonth: e.target.value})}
-                    className="w-full px-4 py-2 border-2 border-[#D2C1B6] rounded-lg focus:ring-2 focus:ring-[#234C6A] focus:border-transparent"
+                    className={`w-full px-4 py-2 rounded-lg ${inputClass}`}
                   />
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium mb-2">Ngày đến hạn tiếp theo</label>
+                <label className={`block text-sm font-medium mb-2 ${labelClass}`}>Ngày đến hạn tiếp theo</label>
                 <input
                   type="date"
                   value={form.nextDue}
                   onChange={(e) => setForm({...form, nextDue: e.target.value})}
-                  className="w-full px-4 py-2 border-2 border-[#D2C1B6] rounded-lg focus:ring-2 focus:ring-[#234C6A] focus:border-transparent"
+                  className={`w-full px-4 py-2 rounded-lg ${inputClass}`}
                 />
               </div>
             </div>

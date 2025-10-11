@@ -5,6 +5,7 @@ import { Doughnut, Bar, Line } from 'react-chartjs-2'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement } from 'chart.js'
 import Notification, { useNotification } from '../components/Notification'
 import Footer from '../components/Footer'
+import Header from '../components/Header'
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement)
 
@@ -26,7 +27,16 @@ export default function AdvancedDashboard(){
   const [budgets, setBudgets] = useState([])
   const [exportHistory, setExportHistory] = useState([])
   const [showAdvancedView, setShowAdvancedView] = useState(true)
-  const [darkMode, setDarkMode] = useState(false)
+  
+  // Initialize dark mode from localStorage (with SSR safety)
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('darkMode')
+      return saved ? JSON.parse(saved) : false
+    }
+    return false
+  })
+  
   const [activeTab, setActiveTab] = useState('overview') // overview, analytics, budget, history
   const [lastFetchTime, setLastFetchTime] = useState(0)
   
@@ -35,13 +45,15 @@ export default function AdvancedDashboard(){
   const doughnutChartRef = useRef(null)
   const barChartRef = useRef(null)
 
-  // Load dark mode preference from localStorage on mount
+  // Sync document class and save to localStorage
   useEffect(() => {
-    const savedDarkMode = localStorage.getItem('darkMode')
-    if (savedDarkMode === 'true') {
-      setDarkMode(true)
+    localStorage.setItem('darkMode', JSON.stringify(darkMode))
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
     }
-  }, [])
+  }, [darkMode])
 
   // Save dark mode preference to localStorage whenever it changes
   useEffect(() => {
@@ -387,102 +399,14 @@ export default function AdvancedDashboard(){
   return (
     <div className={`min-h-screen ${bgClass} transition-all duration-500`}>
       {/* Header */}
-      <header className={darkMode 
-        ? 'bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 shadow-2xl border-b border-slate-700' 
-        : 'bg-gradient-to-r from-[#1B3C53] via-[#234C6A] to-[#1B3C53] shadow-xl'
-      }>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-5">
-            <div className="flex items-center gap-4">
-              <div className="bg-white/10 p-3 rounded-xl backdrop-blur-sm">
-                <span className="text-3xl">📊</span>
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-white">Dashboard Nâng Cao</h1>
-                <p className="text-[#D2C1B6] text-sm mt-1">Tổng quan quản lý tài chính thông minh</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              {/* Dark Mode Toggle - Enhanced */}
-              <button
-                onClick={() => setDarkMode(!darkMode)}
-                className={`relative p-3 rounded-xl transition-all duration-300 transform hover:scale-105 ${
-                  darkMode 
-                    ? 'bg-gradient-to-br from-yellow-400 to-orange-400 shadow-lg shadow-yellow-500/30' 
-                    : 'bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-purple-500/30'
-                }`}
-                title={darkMode ? 'Chế độ sáng' : 'Chế độ tối'}
-              >
-                <span className="text-xl">{darkMode ? '☀️' : '🌙'}</span>
-              </button>
-              
-              {session?.user && (
-                <div className="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-2 backdrop-blur-sm border border-white/10">
-                  <img 
-                    src={session.user.image} 
-                    alt="avatar" 
-                    className="w-10 h-10 rounded-full ring-2 ring-[#D2C1B6]" 
-                  />
-                  <div className="hidden md:block">
-                    <p className="text-sm font-semibold text-white">{session.user.name}</p>
-                    <p className="text-xs text-[#D2C1B6]">{session.user.email}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Navigation */}
-          <nav className="flex items-center justify-between pb-4 border-t border-white/10 pt-4">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Link 
-                href="/" 
-                className="group flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all duration-200 font-medium border border-white/10 hover:border-white/20"
-              >
-                <span className="text-lg">📊</span>
-                <span className="hidden sm:inline">Dashboard</span>
-              </Link>
-              <Link 
-                href="/dashboard-advanced" 
-                className="group flex items-center gap-2 px-4 py-2.5 bg-[#456882] text-white rounded-lg font-medium border-2 border-[#D2C1B6] shadow-lg"
-              >
-                <span className="text-lg">🚀</span>
-                <span className="hidden sm:inline">Nâng cao</span>
-              </Link>
-              <Link 
-                href="/expenses" 
-                className="group flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all duration-200 font-medium border border-white/10 hover:border-white/20"
-              >
-                <span className="text-lg">💰</span>
-                <span className="hidden sm:inline">Chi tiêu</span>
-              </Link>
-              <Link 
-                href="/debts" 
-                className="group flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all duration-200 font-medium border border-white/10 hover:border-white/20"
-              >
-                <span className="text-lg">📝</span>
-                <span className="hidden sm:inline">Khoản nợ</span>
-              </Link>
-              <Link 
-                href="/transaction-history" 
-                className="group flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all duration-200 font-medium border border-white/10 hover:border-white/20"
-              >
-                <span className="text-lg">📜</span>
-                <span className="hidden sm:inline">Lịch sử</span>
-              </Link>
-            </div>
-            
-            <button 
-              onClick={() => signOut()}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 font-medium border border-white/20 hover:border-white/40"
-            >
-              <span>🚪</span>
-              <span className="hidden sm:inline">Đăng xuất</span>
-            </button>
-          </nav>
-        </div>
-      </header>
+      <Header 
+        title="Dashboard Nâng Cao"
+        subtitle="Tổng quan quản lý tài chính thông minh"
+        icon="🚀"
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        showDarkModeToggle={true}
+      />
 
       {/* Notification */}
       {notification && (
@@ -579,62 +503,62 @@ export default function AdvancedDashboard(){
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <>
-            {/* Stats Cards - Enhanced with Dark Mode */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <div className={`rounded-2xl shadow-2xl p-6 text-white transform hover:scale-105 transition-all duration-300 ${
+            {/* Stats Cards - Compact */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className={`rounded-xl shadow-lg p-4 text-white transform hover:scale-105 transition-all duration-300 ${
                 darkMode 
-                  ? 'bg-gradient-to-br from-emerald-600 to-teal-700 shadow-emerald-500/30' 
+                  ? 'bg-gradient-to-br from-emerald-600 to-teal-700' 
                   : 'bg-gradient-to-br from-green-500 to-green-600'
               }`}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium opacity-90">Thu nhập</h3>
-                  <span className="text-3xl">💰</span>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-medium opacity-90">Thu nhập</h3>
+                  <span className="text-2xl">💰</span>
                 </div>
-                <p className="text-3xl font-bold mb-1">{stats.totalIncome.toLocaleString('vi-VN')}đ</p>
-                <p className="text-sm opacity-80">{stats.incomeCount} giao dịch</p>
+                <p className="text-2xl font-bold mb-0.5">{stats.totalIncome.toLocaleString('vi-VN')}đ</p>
+                <p className="text-xs opacity-80">{stats.incomeCount} giao dịch</p>
               </div>
 
-              <div className={`rounded-2xl shadow-2xl p-6 text-white transform hover:scale-105 transition-all duration-300 ${
+              <div className={`rounded-xl shadow-lg p-4 text-white transform hover:scale-105 transition-all duration-300 ${
                 darkMode 
-                  ? 'bg-gradient-to-br from-rose-600 to-pink-700 shadow-rose-500/30' 
+                  ? 'bg-gradient-to-br from-rose-600 to-pink-700' 
                   : 'bg-gradient-to-br from-red-500 to-red-600'
               }`}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium opacity-90">Chi tiêu</h3>
-                  <span className="text-3xl">💸</span>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-medium opacity-90">Chi tiêu</h3>
+                  <span className="text-2xl">💸</span>
                 </div>
-                <p className="text-3xl font-bold mb-1">{stats.totalExpense.toLocaleString('vi-VN')}đ</p>
-                <p className="text-sm opacity-80">{stats.expenseCount} giao dịch</p>
+                <p className="text-2xl font-bold mb-0.5">{stats.totalExpense.toLocaleString('vi-VN')}đ</p>
+                <p className="text-xs opacity-80">{stats.expenseCount} giao dịch</p>
               </div>
 
-              <div className={`rounded-2xl shadow-2xl p-6 text-white transform hover:scale-105 transition-all duration-300 ${
+              <div className={`rounded-xl shadow-lg p-4 text-white transform hover:scale-105 transition-all duration-300 ${
                 stats.balance >= 0 
                   ? darkMode 
-                    ? 'bg-gradient-to-br from-blue-600 to-cyan-700 shadow-blue-500/30' 
+                    ? 'bg-gradient-to-br from-blue-600 to-cyan-700' 
                     : 'bg-gradient-to-br from-blue-500 to-blue-600'
                   : darkMode
-                    ? 'bg-gradient-to-br from-orange-600 to-amber-700 shadow-orange-500/30'
+                    ? 'bg-gradient-to-br from-orange-600 to-amber-700'
                     : 'bg-gradient-to-br from-orange-500 to-orange-600'
               }`}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium opacity-90">Số dư</h3>
-                  <span className="text-3xl">{stats.balance >= 0 ? '📈' : '📉'}</span>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-medium opacity-90">Số dư</h3>
+                  <span className="text-2xl">{stats.balance >= 0 ? '📈' : '📉'}</span>
                 </div>
-                <p className="text-3xl font-bold mb-1">{stats.balance.toLocaleString('vi-VN')}đ</p>
-                <p className="text-sm opacity-80">{stats.balance >= 0 ? 'Dương' : 'Âm'}</p>
+                <p className="text-2xl font-bold mb-0.5">{stats.balance.toLocaleString('vi-VN')}đ</p>
+                <p className="text-xs opacity-80">{stats.balance >= 0 ? 'Dương' : 'Âm'}</p>
               </div>
 
-              <div className={`rounded-2xl shadow-2xl p-6 text-white transform hover:scale-105 transition-all duration-300 ${
+              <div className={`rounded-xl shadow-lg p-4 text-white transform hover:scale-105 transition-all duration-300 ${
                 darkMode 
-                  ? 'bg-gradient-to-br from-purple-600 to-indigo-700 shadow-purple-500/30' 
+                  ? 'bg-gradient-to-br from-purple-600 to-indigo-700' 
                   : 'bg-gradient-to-br from-purple-500 to-purple-600'
               }`}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium opacity-90">Khoản nợ</h3>
-                  <span className="text-3xl">📝</span>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-medium opacity-90">Khoản nợ</h3>
+                  <span className="text-2xl">📝</span>
                 </div>
-                <p className="text-3xl font-bold mb-1">{stats.totalDebt.toLocaleString('vi-VN')}đ</p>
-                <p className="text-sm opacity-80">{stats.debtCount} khoản</p>
+                <p className="text-2xl font-bold mb-0.5">{stats.totalDebt.toLocaleString('vi-VN')}đ</p>
+                <p className="text-xs opacity-80">{stats.debtCount} khoản</p>
               </div>
             </div>
 
