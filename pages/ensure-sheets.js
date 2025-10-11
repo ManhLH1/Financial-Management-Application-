@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/router'
 import Header from '../components/Header'
@@ -9,6 +9,27 @@ export default function EnsureSheets() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
+  
+  // Initialize dark mode from localStorage (with SSR safety)
+  const [darkMode, setDarkMode] = useState(false)
+
+  // Load dark mode on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('darkMode')
+    if (saved) {
+      setDarkMode(JSON.parse(saved))
+    }
+  }, [])
+
+  // Sync document class and save to localStorage
+  useEffect(() => {
+    localStorage.setItem('darkMode', JSON.stringify(darkMode))
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }, [darkMode])
 
   if (status === 'loading') {
     return <div className="flex items-center justify-center min-h-screen">
@@ -46,24 +67,24 @@ export default function EnsureSheets() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <Header />
+    <div className={`min-h-screen ${darkMode ? 'bg-gradient-to-br from-slate-900 to-slate-800' : 'bg-gradient-to-br from-blue-50 to-indigo-100'}`}>
+      <Header darkMode={darkMode} setDarkMode={setDarkMode} />
       
       <div className="max-w-4xl mx-auto px-4 py-12">
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
+        <div className={`rounded-2xl shadow-2xl p-8 ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
           {/* Header */}
           <div className="text-center mb-8">
             <div className="text-6xl mb-4">🔧</div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">
+            <h1 className={`text-3xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
               Kiểm tra & Tạo Sheets
             </h1>
-            <p className="text-gray-600">
+            <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>
               Đảm bảo Google Sheet của bạn có đầy đủ các tabs cần thiết
             </p>
           </div>
 
           {/* Info Box */}
-          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+          <div className={`border-l-4 border-blue-500 p-4 mb-6 ${darkMode ? 'bg-blue-900/30' : 'bg-blue-50'}`}>
             <div className="flex">
               <div className="flex-shrink-0">
                 <svg className="h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -71,10 +92,10 @@ export default function EnsureSheets() {
                 </svg>
               </div>
               <div className="ml-3">
-                <p className="text-sm text-blue-700">
+                <p className={`text-sm ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>
                   <strong>Chức năng này sẽ:</strong>
                 </p>
-                <ul className="mt-2 text-sm text-blue-700 list-disc list-inside">
+                <ul className={`mt-2 text-sm list-disc list-inside ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>
                   <li>Kiểm tra các sheets hiện có trong Google Sheet của bạn</li>
                   <li>Tự động tạo các sheets còn thiếu (RecurringExpenses, Budgets)</li>
                   <li>Thêm headers chuẩn cho các sheets mới</li>
@@ -85,36 +106,36 @@ export default function EnsureSheets() {
 
           {/* Required Sheets List */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">
+            <h3 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
               📋 Các Sheets cần thiết:
             </h3>
             <div className="space-y-2">
-              <div className="flex items-center bg-gray-50 p-3 rounded-lg">
+              <div className={`flex items-center p-3 rounded-lg ${darkMode ? 'bg-slate-700' : 'bg-gray-50'}`}>
                 <span className="text-2xl mr-3">📊</span>
                 <div>
-                  <div className="font-medium text-gray-800">Expenses</div>
-                  <div className="text-sm text-gray-600">Chi tiêu thường</div>
+                  <div className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>Expenses</div>
+                  <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Chi tiêu thường</div>
                 </div>
               </div>
-              <div className="flex items-center bg-gray-50 p-3 rounded-lg">
+              <div className={`flex items-center p-3 rounded-lg ${darkMode ? 'bg-slate-700' : 'bg-gray-50'}`}>
                 <span className="text-2xl mr-3">💳</span>
                 <div>
-                  <div className="font-medium text-gray-800">Debts</div>
-                  <div className="text-sm text-gray-600">Khoản nợ</div>
+                  <div className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>Debts</div>
+                  <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Khoản nợ</div>
                 </div>
               </div>
-              <div className="flex items-center bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+              <div className={`flex items-center p-3 rounded-lg border ${darkMode ? 'bg-yellow-900/30 border-yellow-700' : 'bg-yellow-50 border-yellow-200'}`}>
                 <span className="text-2xl mr-3">🔄</span>
                 <div>
-                  <div className="font-medium text-gray-800">RecurringExpenses</div>
-                  <div className="text-sm text-gray-600">Chi tiêu định kỳ (có thể thiếu)</div>
+                  <div className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>RecurringExpenses</div>
+                  <div className={`text-sm ${darkMode ? 'text-yellow-300' : 'text-gray-600'}`}>Chi tiêu định kỳ (có thể thiếu)</div>
                 </div>
               </div>
-              <div className="flex items-center bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+              <div className={`flex items-center p-3 rounded-lg border ${darkMode ? 'bg-yellow-900/30 border-yellow-700' : 'bg-yellow-50 border-yellow-200'}`}>
                 <span className="text-2xl mr-3">💰</span>
                 <div>
-                  <div className="font-medium text-gray-800">Budgets</div>
-                  <div className="text-sm text-gray-600">Ngân sách (có thể thiếu)</div>
+                  <div className={`font-medium ${darkMode ? 'text-white' : 'text-gray-800'}`}>Budgets</div>
+                  <div className={`text-sm ${darkMode ? 'text-yellow-300' : 'text-gray-600'}`}>Ngân sách (có thể thiếu)</div>
                 </div>
               </div>
             </div>
@@ -222,7 +243,7 @@ export default function EnsureSheets() {
           )}
 
           {/* Help Text */}
-          <div className="mt-8 text-center text-sm text-gray-500">
+          <div className={`mt-8 text-center text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
             <p>
               💡 Tip: Sau khi tạo sheets, bạn có thể vào Google Sheet để xem cấu trúc dữ liệu
             </p>

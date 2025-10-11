@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from './auth/[...nextauth]'
 import { getSheetsClient } from '../../lib/googleClient'
+import { getOrCreateSpreadsheet } from '../../lib/sheetsHelper'
 import { sendEmail } from '../../lib/emailHelper'
 
 const SHEET_NAME = 'RecurringExpenses'
@@ -12,14 +13,18 @@ const SHEET_NAME = 'RecurringExpenses'
 export default async function handler(req, res) {
   // Allow cron job without session for automated checks
   const session = await getServerSession(req, res, authOptions)
-  const spreadsheetId = process.env.GOOGLE_SHEET_ID
+
+  if (!session?.accessToken) {
+    return res.status(401).json({ error: 'Not authenticated' })
+  }
 
   try {
     if (req.method === 'POST') {
-      // Manual trigger or cron job
-      const sheets = session?.accessToken 
-        ? getSheetsClient(session.accessToken)
-        : getSheetsClient(process.env.GOOGLE_SERVICE_ACCOUNT_KEY)
+      // Get user's spreadsheet
+      const spreadsheetId = await getOrCreateSpreadsheet(session.accessToken, session.user.email)
+      const sheets = getSheetsClient(session.accessToken)
+      
+      console.log(`🔔 [Recurring Reminders] Using spreadsheet: ${spreadsheetId}`)
 
       // Get all active recurring expenses
       const response = await sheets.spreadsheets.values.get({

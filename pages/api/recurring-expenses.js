@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from './auth/[...nextauth]'
 import { getSheetsClient } from '../../lib/googleClient'
+import { getOrCreateSpreadsheet } from '../../lib/sheetsHelper'
 
 const SHEET_NAME = 'RecurringExpenses'
 
@@ -18,10 +19,12 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Not authenticated' })
   }
 
-  const spreadsheetId = process.env.GOOGLE_SHEET_ID
-
   try {
+    // Get user's spreadsheet (not fixed env variable)
+    const spreadsheetId = await getOrCreateSpreadsheet(session.accessToken, session.user.email)
     const sheets = getSheetsClient(session.accessToken)
+    
+    console.log(`🔄 [Recurring Expenses] Using spreadsheet: ${spreadsheetId}`)
 
     if (req.method === 'GET') {
       // Get all recurring expenses
