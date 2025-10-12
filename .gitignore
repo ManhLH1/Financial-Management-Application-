@@ -60,3 +60,14 @@ Thumbs.db
 **/QUICK_*.md
 ALTERNATIVE_SOLUTIONS.md
 STILL_ERROR_AFTER_ADD.md
+components/ui/Button.js
+components/ui/Card.js
+components/ui/index.js
+components/ui/Input.js
+components/ui/Modal.js
+components/ui/Toast.js
+DESIGN_SYSTEM.md
+pages/auth.js
+pages/index.js
+styles/globals.css
+tailwind.config.js
