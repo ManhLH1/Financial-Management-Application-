@@ -9,6 +9,7 @@ import MobileBottomNav from '../components/MobileBottomNav'
 import MobileSummaryCard from '../components/MobileSummaryCard'
 import MobileTransactionItem from '../components/MobileTransactionItem'
 import MobileFloatingButton from '../components/MobileFloatingButton'
+import SpendingWarningModal from '../components/SpendingWarningModal'
 import { useIsMobile, vibrateOnAction, formatMobileCurrency } from '../lib/mobileHelpers'
 
 // Category icons and color helpers (kept small and readable)
@@ -58,6 +59,10 @@ export default function Expenses(){
   const [isLoading, setIsLoading] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null)
   const [deleteReason, setDeleteReason] = useState('')
+  // Spending warning modal states
+  const [showWarningModal, setShowWarningModal] = useState(false)
+  const [warningData, setWarningData] = useState(null)
+  const [pendingExpense, setPendingExpense] = useState(null)
   // Initialize dark mode from localStorage (with SSR safety)
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -212,19 +217,75 @@ export default function Expenses(){
     }
   }
 
-  // Add or update an expense
+  // Add or update an expense with spending limit check
   async function add(){
     if (!form.title || !form.amount) {
-      alert('Vui lòng điền đầy đủ thông tin!')
+      showNotification('⚠️ Vui lòng điền đầy đủ thông tin!', 'warning')
       return
     }
     if (form.category === 'Khác' && !form.customCategory) {
-      alert('Vui lòng nhập danh mục khác!')
+      showNotification('⚠️ Vui lòng nhập danh mục khác!', 'warning')
       return
     }
+    
+    const finalCategory = form.category === 'Khác' && form.customCategory ? form.customCategory : form.category
+    
+    // Skip limit check for income or when editing
+    if (form.type === 'income' || editingId) {
+      await saveExpense(finalCategory)
+      return
+    }
+    
+    // Check spending limit for new expenses only
     setIsLoading(true)
     try {
-      const finalCategory = form.category === 'Khác' && form.customCategory ? form.customCategory : form.category
+      const checkRes = await fetch('/api/check-spending-limit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: finalCategory,
+          amount: Number(form.amount)
+        })
+      })
+      
+      const checkData = await checkRes.json()
+      
+      if (!checkRes.ok) {
+        showNotification(`❌ ${checkData.error}`, 'error')
+        setIsLoading(false)
+        return
+      }
+      
+      // If there are alerts, show warning modal
+      if (checkData.alerts && checkData.alerts.length > 0) {
+        setPendingExpense({
+          title: form.title,
+          amount: Number(form.amount),
+          category: finalCategory,
+          date: form.date,
+          type: form.type
+        })
+        setWarningData(checkData)
+        setShowWarningModal(true)
+        setIsLoading(false)
+        return
+      }
+      
+      // No warnings, proceed directly
+      await saveExpense(finalCategory)
+      
+    } catch (error) {
+      console.error('Error checking spending limit:', error)
+      showNotification('⚠️ Không thể kiểm tra hạn mức. Vẫn cho phép lưu.', 'warning')
+      // Allow saving even if check fails
+      await saveExpense(finalCategory)
+    }
+  }
+  
+  // Actual save function
+  async function saveExpense(finalCategory, skipNotification = false) {
+    setIsLoading(true)
+    try {
       if (editingId) {
         // Update existing
         const res = await fetch('/api/expenses', { 
@@ -243,6 +304,9 @@ export default function Expenses(){
           setEditingId(null)
           setForm({title:'',amount:'',category:'Ăn uống',date:new Date().toISOString().split('T')[0], type: 'expense', customCategory: ''})
           await fetchItems()
+          if (!skipNotification) {
+            showNotification('✅ Cập nhật thành công!', 'success')
+          }
         }
       } else {
         // Add new
@@ -260,13 +324,34 @@ export default function Expenses(){
         if(res.ok){
           setForm({title:'',amount:'',category:'Ăn uống',date:new Date().toISOString().split('T')[0], type: 'expense', customCategory: ''})
           await fetchItems()
+          if (!skipNotification) {
+            showNotification('✅ Đã thêm chi tiêu!', 'success')
+          }
         }
       }
     } catch (error) {
       console.error('Error saving expense:', error)
+      showNotification('❌ Có lỗi xảy ra!', 'error')
     } finally {
       setIsLoading(false)
     }
+  }
+  
+  // Handle confirm from warning modal
+  async function handleWarningConfirm() {
+    setShowWarningModal(false)
+    if (pendingExpense) {
+      await saveExpense(pendingExpense.category)
+      setPendingExpense(null)
+      setWarningData(null)
+    }
+  }
+  
+  // Handle edit from warning modal
+  function handleWarningEdit() {
+    setShowWarningModal(false)
+    // Keep the form as is, user can edit the amount
+    showNotification('💡 Hãy điều chỉnh số tiền phù hợp', 'info')
   }
 
   // Calculate stats
@@ -878,6 +963,26 @@ export default function Expenses(){
 
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav />
+      
+      {/* Spending Warning Modal */}
+      {showWarningModal && warningData && (
+        <SpendingWarningModal
+          isOpen={showWarningModal}
+          onClose={() => {
+            setShowWarningModal(false)
+            setPendingExpense(null)
+            setWarningData(null)
+          }}
+          alerts={warningData.alerts}
+          currentSpending={warningData.currentSpending}
+          limits={warningData.limits}
+          afterExpense={warningData.afterExpense}
+          amount={pendingExpense?.amount || 0}
+          category={pendingExpense?.category || ''}
+          onConfirm={handleWarningConfirm}
+          onEdit={handleWarningEdit}
+        />
+      )}
     </div>
   )
 }
