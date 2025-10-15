@@ -55,6 +55,9 @@ Thumbs.db
 # Data directory (per-user spreadsheet mappings)
 .data/
 
+# Documentation folder - không commit lên Git
+docs/
+
 # Temporary documentation files (optional - remove if you want to keep them)
 **/FIX_*.md
 **/QUICK_*.md
