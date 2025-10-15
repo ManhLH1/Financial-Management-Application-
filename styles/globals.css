@@ -106,6 +106,41 @@ body {
   animation: cardPop 0.2s ease-out;
 }
 
+/* Fade in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+/* Slide in from top */
+@keyframes slideInFromTop {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.slide-in-from-top-2 {
+  animation: slideInFromTop 0.2s ease-out;
+}
+
+/* Fade in + Slide animation combined */
+.fade-in {
+  animation: fadeIn 0.2s ease-in;
+}
+
 /* Ripple effect for buttons */
 @keyframes ripple {
   0% {
