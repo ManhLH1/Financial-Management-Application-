@@ -1,11 +1,21 @@
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { useState, useEffect, useRef } from 'react'
-import { Doughnut, Bar, Line } from 'react-chartjs-2'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement } from 'chart.js'
 import Notification, { useNotification } from '../components/Notification'
 import Footer from '../components/Footer'
 import Header from '../components/Header'
+import DashboardFilters from '../components/dashboard/DashboardFilters'
+import DashboardTabs from '../components/dashboard/DashboardTabs'
+import DashboardHero from '../components/dashboard/DashboardHero'
+import DashboardQuickActions from '../components/dashboard/DashboardQuickActions'
+import DashboardStats from '../components/dashboard/DashboardStats'
+import DashboardInsights from '../components/dashboard/DashboardInsights'
+import DashboardCharts from '../components/dashboard/DashboardCharts'
+import DashboardActivity from '../components/dashboard/DashboardActivity'
+import AnalyticsOverview from '../components/dashboard/AnalyticsOverview'
+import BudgetOverview from '../components/dashboard/BudgetOverview'
+import ExportHistoryTable from '../components/dashboard/ExportHistoryTable'
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement)
 
@@ -335,6 +345,122 @@ export default function AdvancedDashboard(){
     }
   }
 
+  // Derived insights
+  const startDateObj = dateRange.startDate ? new Date(dateRange.startDate) : new Date()
+  const endDateObj = dateRange.endDate ? new Date(dateRange.endDate) : new Date()
+  const dayDiff = Math.max(Math.round((endDateObj - startDateObj) / (1000 * 60 * 60 * 24)) + 1, 1)
+
+  const dailyExpense = {}
+  filteredExpenses
+    .filter((e) => e.type === 'expense' && e.date)
+    .forEach((expense) => {
+      dailyExpense[expense.date] = (dailyExpense[expense.date] || 0) + (expense.amount || 0)
+    })
+
+  const peakEntry = Object.entries(dailyExpense).sort((a, b) => b[1] - a[1])[0]
+  const peakDay = peakEntry
+    ? {
+        label: new Date(peakEntry[0]).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' }),
+        value: `${peakEntry[1].toLocaleString('vi-VN')}đ`
+      }
+    : null
+
+  const savingsRate =
+    stats.totalIncome > 0 ? ((stats.totalIncome - stats.totalExpense) / stats.totalIncome) * 100 : stats.totalExpense === 0 ? 100 : 0
+
+  const heroSummary = {
+    totalIncome: stats.totalIncome,
+    totalExpense: stats.totalExpense,
+    balance: stats.balance,
+    savingsRate,
+    peakDay
+  }
+
+  const topCategoryEntry = Object.entries(categoryData).sort((a, b) => b[1] - a[1])[0]
+  const topCategoryPercent =
+    topCategoryEntry && stats.totalExpense > 0 ? ((topCategoryEntry[1] / stats.totalExpense) * 100).toFixed(1) : 0
+
+  const averageExpense =
+    stats.expenseCount > 0 ? stats.totalExpense / stats.expenseCount : 0
+
+  const categoryFrequency = {}
+  filteredExpenses
+    .filter((e) => e.type === 'expense')
+    .forEach((expense) => {
+      const label = expense.category || 'Khác'
+      categoryFrequency[label] = (categoryFrequency[label] || 0) + 1
+    })
+  const recurringEntry = Object.entries(categoryFrequency).sort((a, b) => b[1] - a[1])[0]
+
+  const spendingVelocity = dayDiff > 0 ? stats.totalExpense / dayDiff : stats.totalExpense
+
+  const insights = [
+    topCategoryEntry && {
+      id: 'top-category',
+      icon: '🏷️',
+      label: 'Danh mục chi nhiều nhất',
+      value: topCategoryEntry ? topCategoryEntry[0] : '—',
+      description: `${(topCategoryEntry?.[1] || 0).toLocaleString('vi-VN')}đ • ${topCategoryPercent}% tổng chi`,
+      trend: topCategoryPercent > 40 ? 'down' : 'neutral',
+      trendLabel: topCategoryPercent > 40 ? 'Cảnh báo' : 'Ổn định'
+    },
+    {
+      id: 'avg-expense',
+      icon: '💳',
+      label: 'Chi tiêu trung bình / giao dịch',
+      value: `${Math.round(averageExpense || 0).toLocaleString('vi-VN')}đ`,
+      description: `${stats.expenseCount} khoản chi`,
+      trend: 'neutral',
+      trendLabel: 'Insight'
+    },
+    {
+      id: 'velocity',
+      icon: '⚡',
+      label: 'Tốc độ chi tiêu / ngày',
+      value: `${Math.round(spendingVelocity || 0).toLocaleString('vi-VN')}đ`,
+      description: `${dayDiff} ngày trong phạm vi`,
+      trend: spendingVelocity > (stats.totalIncome / Math.max(dayDiff, 1) || 0) ? 'down' : 'up',
+      trendLabel: spendingVelocity > (stats.totalIncome / Math.max(dayDiff, 1) || 0) ? 'Chi mạnh' : 'Đang kiểm soát'
+    },
+    {
+      id: 'savings-rate',
+      icon: '🛡️',
+      label: 'Tỷ lệ tiết kiệm',
+      value: `${savingsRate.toFixed(1)}%`,
+      description: `Số dư ${stats.balance.toLocaleString('vi-VN')}đ`,
+      trend: savingsRate >= 20 ? 'up' : savingsRate >= 0 ? 'neutral' : 'down',
+      trendLabel: savingsRate >= 20 ? 'Tốt' : savingsRate >= 0 ? 'Cần theo dõi' : 'Âm'
+    },
+    recurringEntry && {
+      id: 'recurring',
+      icon: '🔁',
+      label: 'Danh mục lặp lại nhiều nhất',
+      value: recurringEntry ? recurringEntry[0] : '—',
+      description: `${recurringEntry ? recurringEntry[1] : 0} lần trong kỳ`,
+      trend: recurringEntry && recurringEntry[1] >= 4 ? 'down' : 'neutral',
+      trendLabel: recurringEntry && recurringEntry[1] >= 4 ? 'Kiểm soát' : 'Phổ biến'
+    }
+  ].filter(Boolean)
+
+  const recentActivities = filteredExpenses
+    .slice()
+    .sort((a, b) => {
+      const dateA = a.date ? new Date(a.date).getTime() : 0
+      const dateB = b.date ? new Date(b.date).getTime() : 0
+      return dateB - dateA
+    })
+    .slice(0, 6)
+    .map((item, index) => ({
+      id: item.id || `${item.date}-${index}`,
+      title: item.description || item.note || item.category || 'Giao dịch',
+      amount: item.amount || 0,
+      type: item.type || 'other',
+      category: item.category || 'Khác',
+      dateLabel: item.date
+        ? new Date(item.date).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' })
+        : 'Chưa rõ'
+    }))
+
   // Chart configurations
   const lineChartData = {
     labels: Object.keys(monthlyData),
@@ -419,428 +545,97 @@ export default function AdvancedDashboard(){
       )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Date Range Picker & Actions - Enhanced */}
-        <div className={`${cardBgClass} rounded-2xl shadow-xl p-6 mb-8 border backdrop-blur-sm ${
-          darkMode ? 'border-slate-700/50' : 'border-gray-200'
-        }`}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <label className={`block text-sm font-medium mb-2 ${textClass}`}>Từ ngày</label>
-              <input
-                type="date"
-                value={dateRange.startDate}
-                onChange={(e) => setDateRange({...dateRange, startDate: e.target.value})}
-                className={`w-full px-4 py-2 border-2 rounded-lg transition-all duration-200 ${
-                  darkMode
-                    ? 'bg-slate-700 border-slate-600 text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500'
-                    : 'bg-white border-[#D2C1B6] focus:ring-2 focus:ring-[#234C6A] focus:border-transparent'
-                }`}
-              />
-            </div>
-            <div>
-              <label className={`block text-sm font-medium mb-2 ${textClass}`}>Đến ngày</label>
-              <input
-                type="date"
-                value={dateRange.endDate}
-                onChange={(e) => setDateRange({...dateRange, endDate: e.target.value})}
-                className={`w-full px-4 py-2 border-2 rounded-lg transition-all duration-200 ${
-                  darkMode
-                    ? 'bg-slate-700 border-slate-600 text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500'
-                    : 'bg-white border-[#D2C1B6] focus:ring-2 focus:ring-[#234C6A] focus:border-transparent'
-                }`}
-              />
-            </div>
-            <div className="flex items-end">
-              <button
-                onClick={() => exportData('csv')}
-                disabled={isLoading}
-                className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                <span>📊</span>
-                <span>Xuất CSV</span>
-              </button>
-            </div>
-            <div className="flex items-end">
-              <button
-                onClick={handleBackup}
-                disabled={isLoading}
-                className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                <span>💾</span>
-                <span>Backup</span>
-              </button>
-            </div>
-          </div>
-        </div>
+        <DashboardFilters
+          dateRange={dateRange}
+          setDateRange={setDateRange}
+          onExport={exportData}
+          onBackup={handleBackup}
+          isLoading={isLoading}
+          darkMode={darkMode}
+          cardBgClass={cardBgClass}
+          textClass={textClass}
+        />
 
-        {/* Tabs - Enhanced */}
-        <div className="flex gap-3 mb-6 overflow-x-auto pb-2">
-          {[
-            { id: 'overview', label: 'Tổng quan', icon: '📊', color: 'blue' },
-            { id: 'analytics', label: 'Phân tích', icon: '📈', color: 'green' },
-            { id: 'budget', label: 'Ngân sách', icon: '💰', color: 'purple' },
-            { id: 'history', label: 'Lịch sử', icon: '📜', color: 'orange' }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-3 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 transform hover:scale-105 ${
-                activeTab === tab.id
-                  ? darkMode
-                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-xl shadow-purple-500/30 border border-purple-400'
-                    : 'bg-gradient-to-r from-[#234C6A] to-[#456882] text-white shadow-xl'
-                  : darkMode
-                  ? 'bg-slate-800 text-gray-300 hover:bg-slate-700 border border-slate-700 backdrop-blur-lg'
-                  : 'bg-white text-gray-700 hover:bg-gray-50 shadow-md border border-gray-200'
-              }`}
-            >
-              <span className="text-lg">{tab.icon}</span>
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </div>
+        <DashboardTabs
+          activeTab={activeTab}
+          onChange={setActiveTab}
+          darkMode={darkMode}
+        />
 
         {/* Overview Tab */}
         {activeTab === 'overview' && (
-          <>
-            {/* Stats Cards - Compact */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className={`rounded-xl shadow-lg p-4 text-white transform hover:scale-105 transition-all duration-300 ${
-                darkMode 
-                  ? 'bg-gradient-to-br from-emerald-600 to-teal-700' 
-                  : 'bg-gradient-to-br from-green-500 to-green-600'
-              }`}>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-medium opacity-90">Thu nhập</h3>
-                  <span className="text-2xl">💰</span>
-                </div>
-                <p className="text-2xl font-bold mb-0.5">{stats.totalIncome.toLocaleString('vi-VN')}đ</p>
-                <p className="text-xs opacity-80">{stats.incomeCount} giao dịch</p>
-              </div>
+          <div className="space-y-8">
+            <DashboardHero
+              userName={session.user?.name?.split(' ')[0] || 'bạn'}
+              summary={heroSummary}
+              dateRange={dateRange}
+              darkMode={darkMode}
+            />
 
-              <div className={`rounded-xl shadow-lg p-4 text-white transform hover:scale-105 transition-all duration-300 ${
-                darkMode 
-                  ? 'bg-gradient-to-br from-rose-600 to-pink-700' 
-                  : 'bg-gradient-to-br from-red-500 to-red-600'
-              }`}>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-medium opacity-90">Chi tiêu</h3>
-                  <span className="text-2xl">💸</span>
-                </div>
-                <p className="text-2xl font-bold mb-0.5">{stats.totalExpense.toLocaleString('vi-VN')}đ</p>
-                <p className="text-xs opacity-80">{stats.expenseCount} giao dịch</p>
-              </div>
+            <DashboardQuickActions darkMode={darkMode} />
 
-              <div className={`rounded-xl shadow-lg p-4 text-white transform hover:scale-105 transition-all duration-300 ${
-                stats.balance >= 0 
-                  ? darkMode 
-                    ? 'bg-gradient-to-br from-blue-600 to-cyan-700' 
-                    : 'bg-gradient-to-br from-blue-500 to-blue-600'
-                  : darkMode
-                    ? 'bg-gradient-to-br from-orange-600 to-amber-700'
-                    : 'bg-gradient-to-br from-orange-500 to-orange-600'
-              }`}>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-medium opacity-90">Số dư</h3>
-                  <span className="text-2xl">{stats.balance >= 0 ? '📈' : '📉'}</span>
-                </div>
-                <p className="text-2xl font-bold mb-0.5">{stats.balance.toLocaleString('vi-VN')}đ</p>
-                <p className="text-xs opacity-80">{stats.balance >= 0 ? 'Dương' : 'Âm'}</p>
-              </div>
+            <DashboardStats stats={stats} darkMode={darkMode} />
 
-              <div className={`rounded-xl shadow-lg p-4 text-white transform hover:scale-105 transition-all duration-300 ${
-                darkMode 
-                  ? 'bg-gradient-to-br from-purple-600 to-indigo-700' 
-                  : 'bg-gradient-to-br from-purple-500 to-purple-600'
-              }`}>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-medium opacity-90">Khoản nợ</h3>
-                  <span className="text-2xl">📝</span>
-                </div>
-                <p className="text-2xl font-bold mb-0.5">{stats.totalDebt.toLocaleString('vi-VN')}đ</p>
-                <p className="text-xs opacity-80">{stats.debtCount} khoản</p>
+            <DashboardInsights
+              insights={insights}
+              darkMode={darkMode}
+              cardBgClass={cardBgClass}
+              textClass={textClass}
+            />
+
+            <div className="grid gap-8 lg:grid-cols-3">
+              <div className="space-y-8 lg:col-span-2">
+                <DashboardCharts
+                  lineChartData={lineChartData}
+                  doughnutData={doughnutData}
+                  barData={barData}
+                  downloadChartAsImage={downloadChartAsImage}
+                  lineChartRef={lineChartRef}
+                  doughnutChartRef={doughnutChartRef}
+                  barChartRef={barChartRef}
+                  darkMode={darkMode}
+                  cardBgClass={cardBgClass}
+                  textClass={textClass}
+                />
               </div>
+              <DashboardActivity
+                items={recentActivities}
+                darkMode={darkMode}
+                cardBgClass={cardBgClass}
+                textClass={textClass}
+              />
             </div>
-
-            {/* Charts - Enhanced */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-              <div className={`${cardBgClass} rounded-2xl shadow-xl p-6 border backdrop-blur-sm ${
-                darkMode ? 'border-slate-700/50' : 'border-gray-200'
-              }`}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className={`text-lg font-bold ${textClass}`}>📈 Xu hướng 6 tháng</h3>
-                  <button
-                    onClick={() => downloadChartAsImage(lineChartRef, 'trend-chart')}
-                    className={`px-3 py-1 rounded-lg text-sm transition-all duration-200 ${
-                      darkMode
-                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 shadow-lg shadow-purple-500/30'
-                        : 'bg-[#234C6A] text-white hover:bg-[#1B3C53]'
-                    }`}
-                  >
-                    💾 Tải ảnh
-                  </button>
-                </div>
-                <Line ref={lineChartRef} data={lineChartData} />
-              </div>
-
-              <div className={`${cardBgClass} rounded-2xl shadow-xl p-6 border backdrop-blur-sm ${
-                darkMode ? 'border-slate-700/50' : 'border-gray-200'
-              }`}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className={`text-lg font-bold ${textClass}`}>🍩 Phân bố danh mục</h3>
-                  <button
-                    onClick={() => downloadChartAsImage(doughnutChartRef, 'category-chart')}
-                    className={`px-3 py-1 rounded-lg text-sm transition-all duration-200 ${
-                      darkMode
-                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 shadow-lg shadow-purple-500/30'
-                        : 'bg-[#234C6A] text-white hover:bg-[#1B3C53]'
-                    }`}
-                  >
-                    💾 Tải ảnh
-                  </button>
-                </div>
-                <Doughnut ref={doughnutChartRef} data={doughnutData} />
-              </div>
-            </div>
-
-            <div className={`${cardBgClass} rounded-2xl shadow-xl p-6 border backdrop-blur-sm ${
-              darkMode ? 'border-slate-700/50' : 'border-gray-200'
-            }`}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className={`text-lg font-bold ${textClass}`}>📊 Chi tiết danh mục</h3>
-                <button
-                  onClick={() => downloadChartAsImage(barChartRef, 'detail-chart')}
-                  className={`px-3 py-1 rounded-lg text-sm transition-all duration-200 ${
-                    darkMode
-                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 shadow-lg shadow-purple-500/30'
-                      : 'bg-[#234C6A] text-white hover:bg-[#1B3C53]'
-                  }`}
-                >
-                  💾 Tải ảnh
-                </button>
-              </div>
-              <Bar ref={barChartRef} data={barData} />
-            </div>
-          </>
+          </div>
         )}
 
         {/* Analytics Tab - Enhanced */}
         {activeTab === 'analytics' && analytics && (
-          <div className="space-y-6">
-            {/* Month Comparison */}
-            <div className={`${cardBgClass} rounded-2xl shadow-xl p-6 border backdrop-blur-sm ${
-              darkMode ? 'border-slate-700/50' : 'border-gray-200'
-            }`}>
-              <h3 className={`text-xl font-bold mb-6 ${textClass} flex items-center gap-2`}>
-                <span>📊</span>
-                <span>So sánh tháng này vs tháng trước</span>
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <p className="text-sm text-gray-500 mb-2">Tháng hiện tại</p>
-                  <p className={`text-3xl font-bold ${textClass}`}>
-                    {Number(analytics.comparison.currentMonth.total).toLocaleString('vi-VN')}đ
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {analytics.comparison.currentMonth.count} giao dịch
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 mb-2">Tháng trước</p>
-                  <p className={`text-3xl font-bold ${textClass}`}>
-                    {Number(analytics.comparison.lastMonth.total).toLocaleString('vi-VN')}đ
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {analytics.comparison.lastMonth.count} giao dịch
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 mb-2">Thay đổi</p>
-                  <p className={`text-3xl font-bold ${
-                    analytics.comparison.change.trend === 'up' ? 'text-red-500' :
-                    analytics.comparison.change.trend === 'down' ? 'text-green-500' : 'text-gray-500'
-                  }`}>
-                    {analytics.comparison.change.trend === 'up' ? '↑' : analytics.comparison.change.trend === 'down' ? '↓' : '→'}
-                    {Math.abs(analytics.comparison.change.percent)}%
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {Number(analytics.comparison.change.amount).toLocaleString('vi-VN')}đ
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Top 5 Expenses - Enhanced */}
-            <div className={`${cardBgClass} rounded-2xl shadow-xl p-6 border backdrop-blur-sm ${
-              darkMode ? 'border-slate-700/50' : 'border-gray-200'
-            }`}>
-              <h3 className={`text-xl font-bold mb-4 ${textClass} flex items-center gap-2`}>
-                <span>🏆</span>
-                <span>Top 5 chi tiêu lớn nhất</span>
-              </h3>
-              <div className="space-y-3">
-                {analytics.top5.map((expense, index) => (
-                  <div key={index} className={`flex items-center justify-between p-4 rounded-xl transition-all duration-200 hover:scale-102 ${
-                    darkMode 
-                      ? 'bg-slate-700/50 border border-slate-600/50 hover:bg-slate-700' 
-                      : 'bg-gray-50 hover:bg-gray-100'
-                  }`}>
-                    <div className="flex items-center gap-3">
-                      <span className={`text-2xl font-bold ${
-                        darkMode ? 'text-gray-500' : 'text-gray-400'
-                      }`}>#{index + 1}</span>
-                      <div>
-                        <p className={`font-semibold ${textClass}`}>{expense.title}</p>
-                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                          {expense.category} • {expense.date}
-                        </p>
-                      </div>
-                    </div>
-                    <p className={`text-lg font-bold ${
-                      darkMode ? 'text-rose-400' : 'text-red-500'
-                    }`}>
-                      {expense.amount.toLocaleString('vi-VN')}đ
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Projection - Enhanced */}
-            <div className={`${cardBgClass} rounded-2xl shadow-xl p-6 border backdrop-blur-sm ${
-              darkMode ? 'border-slate-700/50' : 'border-gray-200'
-            }`}>
-              <h3 className={`text-xl font-bold mb-4 ${textClass} flex items-center gap-2`}>
-                <span>🔮</span>
-                <span>Dự báo tháng này</span>
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Trung bình/ngày</p>
-                  <p className={`text-2xl font-bold ${textClass}`}>
-                    {analytics.currentMonthProjection.dailyAverage.toLocaleString('vi-VN')}đ
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Đã chi</p>
-                  <p className={`text-2xl font-bold ${textClass}`}>
-                    {analytics.currentMonthProjection.actualSoFar.toLocaleString('vi-VN')}đ
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Dự kiến cuối tháng</p>
-                  <p className={`text-2xl font-bold text-orange-500`}>
-                    {analytics.currentMonthProjection.projectedTotal.toLocaleString('vi-VN')}đ
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Dự đoán tháng sau</p>
-                  <p className={`text-2xl font-bold text-purple-500`}>
-                    {analytics.prediction.nextMonthPrediction.toLocaleString('vi-VN')}đ
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
+          <AnalyticsOverview
+            analytics={analytics}
+            darkMode={darkMode}
+            cardBgClass={cardBgClass}
+            textClass={textClass}
+          />
         )}
 
         {/* Budget Tab */}
         {activeTab === 'budget' && (
-          <div className="space-y-6">
-            <div className={`${cardBgClass} rounded-2xl shadow-lg p-6 border`}>
-              <div className="flex items-center justify-between mb-6">
-                <h3 className={`text-xl font-bold ${textClass}`}>💰 Quản lý ngân sách</h3>
-                <Link
-                  href="/budgets"
-                  className="px-4 py-2 bg-[#234C6A] text-white rounded-lg hover:bg-[#1B3C53] transition-colors"
-                >
-                  + Thêm ngân sách
-                </Link>
-              </div>
-              
-              {budgetWarnings.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">Chưa có ngân sách nào. Hãy tạo ngân sách mới!</p>
-              ) : (
-                <div className="space-y-4">
-                  {budgetWarnings.map(budget => (
-                    <div key={budget.id} className={`p-4 rounded-lg border-2 ${
-                      budget.isWarning ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-green-500 bg-green-50 dark:bg-green-900/20'
-                    }`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className={`font-bold ${textClass}`}>{budget.category}</h4>
-                        <span className={`text-2xl ${budget.isWarning ? 'text-red-500' : 'text-green-500'}`}>
-                          {budget.isWarning ? '⚠️' : '✅'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4 mb-2">
-                        <div className="flex-1">
-                          <div className="w-full bg-gray-200 rounded-full h-4">
-                            <div
-                              className={`h-4 rounded-full ${budget.isWarning ? 'bg-red-500' : 'bg-green-500'}`}
-                              style={{ width: `${Math.min(budget.percentage, 100)}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                        <span className={`font-bold ${budget.isWarning ? 'text-red-500' : 'text-green-500'}`}>
-                          {budget.percentage}%
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600 dark:text-gray-400">
-                          Đã chi: <span className="font-semibold">{budget.spent.toLocaleString('vi-VN')}đ</span>
-                        </span>
-                        <span className="text-gray-600 dark:text-gray-400">
-                          Ngân sách: <span className="font-semibold">{budget.amount.toLocaleString('vi-VN')}đ</span>
-                        </span>
-                        <span className={budget.remaining >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
-                          Còn lại: <span className="font-semibold">{budget.remaining.toLocaleString('vi-VN')}đ</span>
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          <BudgetOverview
+            budgetWarnings={budgetWarnings}
+            darkMode={darkMode}
+            cardBgClass={cardBgClass}
+            textClass={textClass}
+          />
         )}
 
         {/* History Tab */}
         {activeTab === 'history' && (
-          <div className={`${cardBgClass} rounded-2xl shadow-lg p-6 border`}>
-            <h3 className={`text-xl font-bold mb-6 ${textClass}`}>📜 Lịch sử xuất dữ liệu</h3>
-            {exportHistory.length === 0 ? (
-              <p className="text-center text-gray-500 py-8">Chưa có lịch sử xuất dữ liệu</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b-2 border-gray-200 dark:border-gray-700">
-                      <th className={`text-left py-3 px-4 ${textClass}`}>Tên file</th>
-                      <th className={`text-left py-3 px-4 ${textClass}`}>Định dạng</th>
-                      <th className={`text-left py-3 px-4 ${textClass}`}>Khoảng thời gian</th>
-                      <th className={`text-left py-3 px-4 ${textClass}`}>Ngày xuất</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {exportHistory.map((item, index) => (
-                      <tr key={index} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td className={`py-3 px-4 ${textClass}`}>{item.filename}</td>
-                        <td className="py-3 px-4">
-                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm font-medium">
-                            {item.format.toUpperCase()}
-                          </span>
-                        </td>
-                        <td className={`py-3 px-4 ${textClass}`}>{item.month}</td>
-                        <td className={`py-3 px-4 text-sm text-gray-500`}>
-                          {new Date(item.exportDate).toLocaleString('vi-VN')}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+          <ExportHistoryTable
+            exportHistory={exportHistory}
+            darkMode={darkMode}
+            cardBgClass={cardBgClass}
+            textClass={textClass}
+          />
         )}
       </div>
 
