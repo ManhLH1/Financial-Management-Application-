@@ -74,3 +74,28 @@ pages/auth.js
 pages/index.js
 styles/globals.css
 tailwind.config.js
+
+# Android build artifacts
+*.apk
+*.aab
+*.apk.idsig
+*.keystore
+manifest-checksum.txt
+
+# Gradle and Android
+gradle/
+build.gradle
+settings.gradle
+gradle.properties
+gradlew
+gradlew.bat
+twa-manifest.json
+app/
+
+# Backup files
+*.backup
+*.bak
+
+# Test and spreadsheet files
+test-spreadsheet-creation.js
+*.xlsx
