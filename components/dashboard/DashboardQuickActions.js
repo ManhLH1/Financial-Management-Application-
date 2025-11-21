@@ -1,86 +1,78 @@
 import Link from 'next/link'
 
-const DEFAULT_ACTIONS = [
+const ACTIONS = [
   {
     id: 'add-transaction',
-    label: 'Ghi giao dịch',
-    description: 'Thu hoặc chi',
+    label: 'Ghi mới',
     href: '/transactions/new',
-    bgColor: '#EFF6FF',
-    iconColor: '#3B82F6',
-    icon: '➕'
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+      </svg>
+    ),
+    color: 'blue'
   },
   {
     id: 'add-budget',
-    label: 'Thiết lập ngân sách',
-    description: 'Kiểm soát từng danh mục',
+    label: 'Ngân sách',
     href: '/budgets',
-    bgColor: '#F3E8FF',
-    iconColor: '#6D28D9',
-    icon: '💰'
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+    color: 'purple'
   },
   {
     id: 'add-debt',
-    label: 'Theo dõi khoản nợ',
-    description: 'Ghi chú và nhắc hạn',
+    label: 'Khoản nợ',
     href: '/debts',
-    bgColor: '#FEF3C7',
-    iconColor: '#F59E0B',
-    icon: '📌'
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+    ),
+    color: 'amber'
   },
   {
-    id: 'export-data',
-    label: 'Xuất dữ liệu',
-    description: 'Excel • PDF • CSV',
+    id: 'export',
+    label: 'Xuất file',
     href: '/exports',
-    bgColor: '#ECFDF5',
-    iconColor: '#10B981',
-    icon: '📤'
-  }
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+      </svg>
+    ),
+    color: 'emerald'
+  },
 ]
 
-export default function DashboardQuickActions({ actions = DEFAULT_ACTIONS, darkMode }) {
+export default function DashboardQuickActions({ darkMode }) {
   return (
-    <section className="mb-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <p className={`text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-            Tác vụ nhanh
-          </p>
-          <h3 className={`text-2xl font-bold mt-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-            Thao tác chỉ với một chạm
-          </h3>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {actions.map((action) => (
-          <Link
-            key={action.id}
-            href={action.href}
-            className={`group relative overflow-hidden rounded-[22px] p-6 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(15,23,42,0.12)] ${
-              darkMode 
-                ? 'bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50' 
-                : 'bg-white border border-gray-100'
+    <div className={`p-3 rounded-[32px] border mb-8 flex justify-around items-center ${darkMode
+      ? 'bg-[#0F172A]/60 border-white/5 backdrop-blur-md'
+      : 'bg-white border-slate-100 shadow-sm'
+      }`}>
+      {ACTIONS.map((action) => (
+        <Link
+          key={action.id}
+          href={action.href}
+          className={`flex flex-col items-center gap-3 p-4 rounded-[24px] transition-all duration-300 group ${darkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50'
             }`}
-            style={!darkMode ? { backgroundColor: action.bgColor } : {}}
-          >
-            <div className="flex flex-col items-center text-center gap-3">
-              <div
-                className="flex h-16 w-16 items-center justify-center rounded-2xl text-3xl shadow-lg"
-                style={{ backgroundColor: action.iconColor + '20', color: action.iconColor }}
-              >
-                {action.icon}
-              </div>
-              <div>
-                <p className={`font-bold text-sm ${darkMode ? 'text-white' : 'text-slate-900'}`}>{action.label}</p>
-                <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{action.description}</p>
-              </div>
+        >
+          <div className={`h-14 w-14 rounded-[20px] flex items-center justify-center text-white shadow-lg transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-1 ${darkMode
+            ? 'bg-slate-800 border border-white/10 shadow-black/20'
+            : 'bg-white border border-slate-100 text-slate-700 shadow-slate-200'
+            }`}>
+            <div className={`transition-colors duration-300 ${darkMode ? 'text-white' : 'text-slate-700 group-hover:text-indigo-600'}`}>
+              {action.icon}
             </div>
-          </Link>
-        ))}
-      </div>
-    </section>
+          </div>
+          <span className={`text-xs font-bold tracking-wide uppercase ${darkMode ? 'text-slate-400 group-hover:text-white' : 'text-slate-500 group-hover:text-slate-900'}`}>
+            {action.label}
+          </span>
+        </Link>
+      ))}
+    </div>
   )
 }
-
-

@@ -3,12 +3,12 @@ import { SessionProvider } from 'next-auth/react'
 import { useState, useEffect } from 'react'
 import Head from 'next/head'
 
-export default function App({ Component, pageProps: { session, ...pageProps } }){
+export default function App({ Component, pageProps: { session, ...pageProps } }) {
   const [theme, setTheme] = useState('light')
-  useEffect(()=>{
-    if(document.documentElement.classList.contains('dark')) setTheme('dark')
-  },[])
-  
+  useEffect(() => {
+    if (document.documentElement.classList.contains('dark')) setTheme('dark')
+  }, [])
+
   return (
     <>
       <Head>
@@ -30,8 +30,25 @@ export default function App({ Component, pageProps: { session, ...pageProps } })
         <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-72x72.png" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="shortcut icon" href="/favicon.ico" />
-        
+
+        {/* Premium Fonts */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="true" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
+        <style>{`
+          :root {
+            --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+            --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
+          }
+          body {
+            font-family: var(--font-sans);
+          }
+          h1, h2, h3, h4, h5, h6 {
+            font-family: var(--font-display);
+          }
+        `}</style>
       </Head>
       <SessionProvider session={session}>
         <Component {...pageProps} />

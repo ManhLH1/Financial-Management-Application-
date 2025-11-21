@@ -1,12 +1,12 @@
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { useState, useEffect, useRef } from 'react'
-import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement } from 'chart.js'
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Filler } from 'chart.js'
 import Notification, { useNotification } from '../components/Notification'
 import Footer from '../components/Footer'
 import Header from '../components/Header'
 import DashboardFilters from '../components/dashboard/DashboardFilters'
-import DashboardTabs from '../components/dashboard/DashboardTabs'
+
 import DashboardHero from '../components/dashboard/DashboardHero'
 import DashboardQuickActions from '../components/dashboard/DashboardQuickActions'
 import DashboardStats from '../components/dashboard/DashboardStats'
@@ -17,45 +17,39 @@ import AnalyticsOverview from '../components/dashboard/AnalyticsOverview'
 import BudgetOverview from '../components/dashboard/BudgetOverview'
 import ExportHistoryTable from '../components/dashboard/ExportHistoryTable'
 
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement)
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Filler)
 
-export default function AdvancedDashboard(){
+export default function AdvancedDashboard() {
   const { data: session } = useSession()
   const [expenses, setExpenses] = useState([])
   const [debts, setDebts] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const { notification, showNotification, hideNotification } = useNotification()
-  
-  // Date Range instead of single month
+
   const [dateRange, setDateRange] = useState({
     startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0]
   })
-  
-  // New features state
+
   const [analytics, setAnalytics] = useState(null)
   const [budgets, setBudgets] = useState([])
   const [exportHistory, setExportHistory] = useState([])
-  const [showAdvancedView, setShowAdvancedView] = useState(true)
-  
-  // Initialize dark mode from localStorage (with SSR safety)
+
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('darkMode')
-      return saved ? JSON.parse(saved) : false
+      return saved ? JSON.parse(saved) : true // Default to dark mode for premium feel
     }
-    return false
+    return true
   })
-  
-  const [activeTab, setActiveTab] = useState('overview') // overview, analytics, budget, history
+
+  const [activeTab, setActiveTab] = useState('overview')
   const [lastFetchTime, setLastFetchTime] = useState(0)
-  
-  // Chart refs for exporting
+
   const lineChartRef = useRef(null)
   const doughnutChartRef = useRef(null)
   const barChartRef = useRef(null)
 
-  // Sync document class and save to localStorage
   useEffect(() => {
     localStorage.setItem('darkMode', JSON.stringify(darkMode))
     if (darkMode) {
@@ -65,17 +59,11 @@ export default function AdvancedDashboard(){
     }
   }, [darkMode])
 
-  // Save dark mode preference to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('darkMode', darkMode.toString())
-  }, [darkMode])
-
-  // Load from cache on mount
   useEffect(() => {
     const cachedExpenses = localStorage.getItem('expenses_cache')
     const cachedDebts = localStorage.getItem('debts_cache')
     const cachedTimestamp = localStorage.getItem('data_cache_timestamp')
-    
+
     if (cachedExpenses && cachedDebts) {
       const timestamp = parseInt(cachedTimestamp || '0')
       const now = Date.now()
@@ -83,7 +71,6 @@ export default function AdvancedDashboard(){
         setExpenses(JSON.parse(cachedExpenses))
         setDebts(JSON.parse(cachedDebts))
         setLastFetchTime(timestamp)
-        console.log('✅ Loaded from cache (Advanced Dashboard)')
       }
     }
   }, [])
@@ -91,53 +78,35 @@ export default function AdvancedDashboard(){
   useEffect(() => {
     if (session) {
       const now = Date.now()
-      // Fetch main data only if cache is stale
       if (now - lastFetchTime > 5 * 60 * 1000) {
         fetchMainData()
       }
-      // Fetch analytics/budgets/history based on active tab (lazy loading)
-      if (activeTab === 'analytics' && !analytics) {
-        fetchAnalytics()
-      } else if (activeTab === 'budget' && budgets.length === 0) {
-        fetchBudgets()
-      } else if (activeTab === 'history' && exportHistory.length === 0) {
-        fetchExportHistory()
-      }
+      if (activeTab === 'analytics' && !analytics) fetchAnalytics()
+      else if (activeTab === 'budget' && budgets.length === 0) fetchBudgets()
+      else if (activeTab === 'history' && exportHistory.length === 0) fetchExportHistory()
     }
   }, [session, activeTab])
 
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-  }, [darkMode])
-
   async function fetchMainData() {
     try {
-      console.log('🔄 Fetching main data (Advanced)...')
       const [expRes, debtRes] = await Promise.all([
         fetch('/api/expenses'),
         fetch('/api/debts')
       ])
-      
+
       const expData = await expRes.json()
       const debtData = await debtRes.json()
-      
+
       const expensesList = expData.items || []
       const debtsList = debtData.notes || []
-      
+
       setExpenses(expensesList)
       setDebts(debtsList)
-      
-      // Update cache
+
       localStorage.setItem('expenses_cache', JSON.stringify(expensesList))
       localStorage.setItem('debts_cache', JSON.stringify(debtsList))
       localStorage.setItem('data_cache_timestamp', Date.now().toString())
       setLastFetchTime(Date.now())
-      
-      console.log('✅ Main data cached')
     } catch (error) {
       console.error('Error fetching main data:', error)
     }
@@ -175,19 +144,16 @@ export default function AdvancedDashboard(){
 
   async function fetchAllData() {
     await fetchMainData()
-    // Lazy load others based on tab
     if (activeTab === 'analytics') await fetchAnalytics()
     if (activeTab === 'budget') await fetchBudgets()
     if (activeTab === 'history') await fetchExportHistory()
   }
 
-  // Filter expenses by date range
   const filteredExpenses = expenses.filter(e => {
     if (!e.date) return false
     return e.date >= dateRange.startDate && e.date <= dateRange.endDate
   })
 
-  // Calculate statistics based on date range
   const stats = {
     totalExpense: filteredExpenses.filter(e => e.type === 'expense').reduce((sum, e) => sum + (e.amount || 0), 0),
     totalIncome: filteredExpenses.filter(e => e.type === 'income').reduce((sum, e) => sum + (e.amount || 0), 0),
@@ -198,15 +164,14 @@ export default function AdvancedDashboard(){
   }
   stats.balance = stats.totalIncome - stats.totalExpense
 
-  // Check budget warnings
   const budgetWarnings = budgets.map(budget => {
     const categoryExpenses = filteredExpenses
       .filter(e => e.type === 'expense' && e.category === budget.category)
       .reduce((sum, e) => sum + (e.amount || 0), 0)
-    
+
     const percentage = budget.amount > 0 ? (categoryExpenses / budget.amount * 100).toFixed(1) : 0
     const isWarning = percentage >= budget.alertThreshold
-    
+
     return {
       ...budget,
       spent: categoryExpenses,
@@ -216,13 +181,11 @@ export default function AdvancedDashboard(){
     }
   })
 
-  // Group by category
   const categoryData = {}
   filteredExpenses.filter(e => e.type === 'expense').forEach(e => {
     categoryData[e.category] = (categoryData[e.category] || 0) + e.amount
   })
 
-  // Monthly data (last 6 months)
   const monthlyData = {}
   const now = new Date()
   for (let i = 5; i >= 0; i--) {
@@ -230,7 +193,7 @@ export default function AdvancedDashboard(){
     const key = date.toISOString().slice(0, 7)
     monthlyData[key] = { expense: 0, income: 0 }
   }
-  
+
   expenses.forEach(e => {
     const month = e.date?.slice(0, 7)
     if (monthlyData[month]) {
@@ -243,21 +206,12 @@ export default function AdvancedDashboard(){
     setIsLoading(true)
     try {
       showNotification('⏳ Đang xuất dữ liệu...', 'info', 3000)
-      
       const response = await fetch('/api/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          format, 
-          expenses: filteredExpenses, 
-          debts,
-          stats,
-          dateRange
-        })
+        body: JSON.stringify({ format, expenses: filteredExpenses, debts, stats, dateRange })
       })
-      
       const data = await response.json()
-      
       if (response.ok) {
         if (data.downloadUrl) {
           const link = document.createElement('a')
@@ -265,8 +219,6 @@ export default function AdvancedDashboard(){
           link.download = data.filename
           link.click()
         }
-        
-        // Save to export history
         await fetch('/api/export-history', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -277,14 +229,8 @@ export default function AdvancedDashboard(){
             fileSize: 'N/A'
           })
         })
-        
-        await fetchAllData() // Refresh history
-        
-        showNotification(
-          `✅ Xuất dữ liệu thành công!\n\n📧 Email đã được gửi đến ${session.user.email}\n📥 File: ${data.filename}`,
-          'success',
-          8000
-        )
+        await fetchAllData()
+        showNotification(`✅ Xuất thành công!`, 'success')
       } else {
         showNotification(`❌ ${data.error || 'Lỗi xuất dữ liệu'}`, 'error')
       }
@@ -299,26 +245,18 @@ export default function AdvancedDashboard(){
     setIsLoading(true)
     try {
       showNotification('💾 Đang tạo backup...', 'info', 3000)
-      
       const response = await fetch('/api/backup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'backup' })
       })
-      
       const data = await response.json()
-      
       if (response.ok) {
         const link = document.createElement('a')
         link.href = data.downloadUrl
         link.download = data.filename
         link.click()
-        
-        showNotification(
-          `✅ Backup thành công!\n\n📧 File: ${data.filename}\nĐã gửi về email: ${session.user.email}`,
-          'success',
-          8000
-        )
+        showNotification(`✅ Backup thành công!`, 'success')
       } else {
         showNotification(`❌ ${data.error || 'Lỗi tạo backup'}`, 'error')
       }
@@ -339,116 +277,23 @@ export default function AdvancedDashboard(){
           link.download = `${chartName}-${new Date().toISOString().split('T')[0]}.png`
           link.href = url
           link.click()
-          showNotification('✅ Biểu đồ đã được tải xuống!', 'success')
+          showNotification('✅ Đã tải ảnh biểu đồ!', 'success')
         })
       }
     }
   }
 
-  // Derived insights
-  const startDateObj = dateRange.startDate ? new Date(dateRange.startDate) : new Date()
-  const endDateObj = dateRange.endDate ? new Date(dateRange.endDate) : new Date()
-  const dayDiff = Math.max(Math.round((endDateObj - startDateObj) / (1000 * 60 * 60 * 24)) + 1, 1)
-
-  const dailyExpense = {}
-  filteredExpenses
-    .filter((e) => e.type === 'expense' && e.date)
-    .forEach((expense) => {
-      dailyExpense[expense.date] = (dailyExpense[expense.date] || 0) + (expense.amount || 0)
-    })
-
-  const peakEntry = Object.entries(dailyExpense).sort((a, b) => b[1] - a[1])[0]
-  const peakDay = peakEntry
-    ? {
-        label: new Date(peakEntry[0]).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' }),
-        value: `${peakEntry[1].toLocaleString('vi-VN')}đ`
-      }
-    : null
-
-  const savingsRate =
-    stats.totalIncome > 0 ? ((stats.totalIncome - stats.totalExpense) / stats.totalIncome) * 100 : stats.totalExpense === 0 ? 100 : 0
-
+  const savingsRate = stats.totalIncome > 0 ? ((stats.totalIncome - stats.totalExpense) / stats.totalIncome) * 100 : 0
   const heroSummary = {
     totalIncome: stats.totalIncome,
     totalExpense: stats.totalExpense,
     balance: stats.balance,
-    savingsRate,
-    peakDay
+    savingsRate
   }
-
-  const topCategoryEntry = Object.entries(categoryData).sort((a, b) => b[1] - a[1])[0]
-  const topCategoryPercent =
-    topCategoryEntry && stats.totalExpense > 0 ? ((topCategoryEntry[1] / stats.totalExpense) * 100).toFixed(1) : 0
-
-  const averageExpense =
-    stats.expenseCount > 0 ? stats.totalExpense / stats.expenseCount : 0
-
-  const categoryFrequency = {}
-  filteredExpenses
-    .filter((e) => e.type === 'expense')
-    .forEach((expense) => {
-      const label = expense.category || 'Khác'
-      categoryFrequency[label] = (categoryFrequency[label] || 0) + 1
-    })
-  const recurringEntry = Object.entries(categoryFrequency).sort((a, b) => b[1] - a[1])[0]
-
-  const spendingVelocity = dayDiff > 0 ? stats.totalExpense / dayDiff : stats.totalExpense
-
-  const insights = [
-    topCategoryEntry && {
-      id: 'top-category',
-      icon: '🏷️',
-      label: 'Danh mục chi nhiều nhất',
-      value: topCategoryEntry ? topCategoryEntry[0] : '—',
-      description: `${(topCategoryEntry?.[1] || 0).toLocaleString('vi-VN')}đ • ${topCategoryPercent}% tổng chi`,
-      trend: topCategoryPercent > 40 ? 'down' : 'neutral',
-      trendLabel: topCategoryPercent > 40 ? 'Cảnh báo' : 'Ổn định'
-    },
-    {
-      id: 'avg-expense',
-      icon: '💳',
-      label: 'Chi tiêu trung bình / giao dịch',
-      value: `${Math.round(averageExpense || 0).toLocaleString('vi-VN')}đ`,
-      description: `${stats.expenseCount} khoản chi`,
-      trend: 'neutral',
-      trendLabel: 'Insight'
-    },
-    {
-      id: 'velocity',
-      icon: '⚡',
-      label: 'Tốc độ chi tiêu / ngày',
-      value: `${Math.round(spendingVelocity || 0).toLocaleString('vi-VN')}đ`,
-      description: `${dayDiff} ngày trong phạm vi`,
-      trend: spendingVelocity > (stats.totalIncome / Math.max(dayDiff, 1) || 0) ? 'down' : 'up',
-      trendLabel: spendingVelocity > (stats.totalIncome / Math.max(dayDiff, 1) || 0) ? 'Chi mạnh' : 'Đang kiểm soát'
-    },
-    {
-      id: 'savings-rate',
-      icon: '🛡️',
-      label: 'Tỷ lệ tiết kiệm',
-      value: `${savingsRate.toFixed(1)}%`,
-      description: `Số dư ${stats.balance.toLocaleString('vi-VN')}đ`,
-      trend: savingsRate >= 20 ? 'up' : savingsRate >= 0 ? 'neutral' : 'down',
-      trendLabel: savingsRate >= 20 ? 'Tốt' : savingsRate >= 0 ? 'Cần theo dõi' : 'Âm'
-    },
-    recurringEntry && {
-      id: 'recurring',
-      icon: '🔁',
-      label: 'Danh mục lặp lại nhiều nhất',
-      value: recurringEntry ? recurringEntry[0] : '—',
-      description: `${recurringEntry ? recurringEntry[1] : 0} lần trong kỳ`,
-      trend: recurringEntry && recurringEntry[1] >= 4 ? 'down' : 'neutral',
-      trendLabel: recurringEntry && recurringEntry[1] >= 4 ? 'Kiểm soát' : 'Phổ biến'
-    }
-  ].filter(Boolean)
 
   const recentActivities = filteredExpenses
     .slice()
-    .sort((a, b) => {
-      const dateA = a.date ? new Date(a.date).getTime() : 0
-      const dateB = b.date ? new Date(b.date).getTime() : 0
-      return dateB - dateA
-    })
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 6)
     .map((item, index) => ({
       id: item.id || `${item.date}-${index}`,
@@ -456,30 +301,45 @@ export default function AdvancedDashboard(){
       amount: item.amount || 0,
       type: item.type || 'other',
       category: item.category || 'Khác',
-      dateLabel: item.date
-        ? new Date(item.date).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' })
-        : 'Chưa rõ'
+      dateLabel: item.date ? new Date(item.date).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' }) : 'Chưa rõ'
     }))
 
-  // Chart configurations - Neo-Fintech colors
   const lineChartData = {
     labels: Object.keys(monthlyData),
     datasets: [
       {
         label: 'Thu nhập',
         data: Object.values(monthlyData).map(m => m.income),
-        borderColor: '#10B981',
-        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        borderColor: '#34D399', // Emerald 400
+        backgroundColor: (context) => {
+          const ctx = context.chart.ctx;
+          const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+          gradient.addColorStop(0, 'rgba(52, 211, 153, 0.2)');
+          gradient.addColorStop(1, 'rgba(52, 211, 153, 0)');
+          return gradient;
+        },
         tension: 0.4,
-        fill: true
+        fill: true,
+        pointRadius: 0,
+        pointHoverRadius: 6,
+        borderWidth: 3
       },
       {
         label: 'Chi tiêu',
         data: Object.values(monthlyData).map(m => m.expense),
-        borderColor: '#EF4444',
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        borderColor: '#FB7185', // Rose 400
+        backgroundColor: (context) => {
+          const ctx = context.chart.ctx;
+          const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+          gradient.addColorStop(0, 'rgba(251, 113, 133, 0.2)');
+          gradient.addColorStop(1, 'rgba(251, 113, 133, 0)');
+          return gradient;
+        },
         tension: 0.4,
-        fill: true
+        fill: true,
+        pointRadius: 0,
+        pointHoverRadius: 6,
+        borderWidth: 3
       }
     ]
   }
@@ -489,184 +349,149 @@ export default function AdvancedDashboard(){
     datasets: [{
       data: Object.values(categoryData),
       backgroundColor: [
-        '#3B82F6', '#6D28D9', '#10B981', '#EF4444', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6'
-      ]
+        '#60A5FA', // Blue 400
+        '#A78BFA', // Violet 400
+        '#34D399', // Emerald 400
+        '#FB7185', // Rose 400
+        '#FBBF24', // Amber 400
+        '#F472B6', // Pink 400
+        '#818CF8', // Indigo 400
+        '#2DD4BF'  // Teal 400
+      ],
+      borderWidth: 0,
+      hoverOffset: 4
     }]
   }
 
-  // Debt chart data (simplified - would need actual debt data)
-  const debtLabels = debts.length > 0 
-    ? debts.slice(0, 5).map(d => d.description || 'Khoản nợ')
-    : ['Nợ 1', 'Nợ 2', 'Nợ 3']
-  
   const debtBarData = {
-    labels: debtLabels,
+    labels: debts.slice(0, 5).map(d => d.description || 'Khoản nợ'),
     datasets: [
-      {
-        label: 'Gốc',
-        data: debts.length > 0 
-          ? debts.slice(0, 5).map(d => (d.amount || 0) * 0.7)
-          : [1000000, 2000000, 1500000],
-        backgroundColor: '#3B82F6'
-      },
-      {
-        label: 'Lãi',
-        data: debts.length > 0 
-          ? debts.slice(0, 5).map(d => (d.amount || 0) * 0.2)
-          : [200000, 400000, 300000],
-        backgroundColor: '#F59E0B'
-      },
-      {
-        label: 'Đã trả',
-        data: debts.length > 0 
-          ? debts.slice(0, 5).map(d => (d.amount || 0) * 0.1)
-          : [100000, 200000, 150000],
-        backgroundColor: '#10B981'
-      }
+      { label: 'Gốc', data: debts.slice(0, 5).map(d => (d.amount || 0) * 0.7), backgroundColor: '#3B82F6' },
+      { label: 'Lãi', data: debts.slice(0, 5).map(d => (d.amount || 0) * 0.2), backgroundColor: '#F59E0B' },
+      { label: 'Đã trả', data: debts.slice(0, 5).map(d => (d.amount || 0) * 0.1), backgroundColor: '#10B981' }
     ]
   }
 
   if (!session) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#D2C1B6]/20 via-white to-[#456882]/10">
+      <div className="min-h-screen flex items-center justify-center bg-[#020617] text-white">
         <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4 text-[#1B3C53]">Vui lòng đăng nhập</h2>
-          <Link href="/auth" className="btn btn-primary">
-            Đăng nhập với Google
+          <h2 className="text-3xl font-bold mb-6">Quản Lý Chi Tiêu</h2>
+          <Link href="/auth" className="px-8 py-4 bg-indigo-600 rounded-2xl font-bold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-500/30">
+            Đăng nhập ngay
           </Link>
         </div>
       </div>
     )
   }
 
-  // Neo-Fintech styling
-  const bgClass = darkMode 
-    ? 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900' 
-    : 'bg-[#F8FAFC]'
-  const textClass = darkMode ? 'text-gray-100' : 'text-slate-900'
-  const cardBgClass = darkMode 
-    ? 'bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-slate-700/50 shadow-2xl' 
-    : 'bg-white border-gray-100'
-
   return (
-    <div className={`min-h-screen ${bgClass} transition-all duration-500`}>
-      {/* Header */}
-      <Header 
-        title="Quản lý Chi tiêu thông minh"
-        subtitle="Dashboard tài chính cá nhân toàn diện"
-        icon="💰"
-        darkMode={darkMode}
-        setDarkMode={setDarkMode}
-        showDarkModeToggle={true}
-      />
+    <div className={`min-h-screen transition-colors duration-500 font-sans ${darkMode ? 'bg-[#020617] text-slate-200' : 'bg-slate-50 text-slate-900'
+      }`}>
 
-      {/* Notification */}
-      {notification && (
-        <Notification
-          message={notification.message}
-          type={notification.type}
-          onClose={hideNotification}
-          duration={notification.duration}
-        />
+      {/* Background Gradients */}
+      {darkMode && (
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute top-[-10%] right-[-10%] w-[800px] h-[800px] bg-indigo-900/20 rounded-full blur-[120px] opacity-30"></div>
+          <div className="absolute bottom-[-10%] left-[-10%] w-[800px] h-[800px] bg-blue-900/20 rounded-full blur-[120px] opacity-30"></div>
+        </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-        <DashboardFilters
-          dateRange={dateRange}
-          setDateRange={setDateRange}
-          onExport={exportData}
-          onBackup={handleBackup}
-          isLoading={isLoading}
+      <div className="relative z-10">
+        <Header
+          title="Dashboard"
+          subtitle="Tổng quan tài chính"
+          icon="⚡"
           darkMode={darkMode}
-          cardBgClass={cardBgClass}
-          textClass={textClass}
+          setDarkMode={setDarkMode}
+          showDarkModeToggle={true}
         />
 
-        <DashboardTabs
-          activeTab={activeTab}
-          onChange={setActiveTab}
-          darkMode={darkMode}
-        />
+        {notification && (
+          <Notification
+            message={notification.message}
+            type={notification.type}
+            onClose={hideNotification}
+            duration={notification.duration}
+          />
+        )}
 
-        {/* Overview Tab */}
-        {activeTab === 'overview' && (
-          <div className="space-y-8">
-            <DashboardHero
-              userName={session.user?.name?.split(' ')[0] || 'bạn'}
-              summary={heroSummary}
+        <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+          {/* Top Controls */}
+          <div className="flex flex-col md:flex-row justify-end items-center gap-4">
+
+            <DashboardFilters
               dateRange={dateRange}
+              setDateRange={setDateRange}
+              onExport={exportData}
+              onBackup={handleBackup}
+              isLoading={isLoading}
               darkMode={darkMode}
             />
+          </div>
 
-            <DashboardQuickActions darkMode={darkMode} />
+          {activeTab === 'overview' && (
+            <div className="animate-fade-in space-y-8">
+              {/* Hero Section */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2">
+                  <DashboardHero
+                    userName={session.user?.name?.split(' ')[0] || 'bạn'}
+                    summary={heroSummary}
+                    dateRange={dateRange}
+                    darkMode={darkMode}
+                  />
+                </div>
+                <div className="flex flex-col justify-between gap-6">
+                  <DashboardStats stats={stats} darkMode={darkMode} />
+                  <DashboardQuickActions darkMode={darkMode} />
+                </div>
+              </div>
 
-            <DashboardStats stats={stats} darkMode={darkMode} budgets={budgets} />
+              {/* Charts & Activity */}
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                <div className="xl:col-span-2">
+                  <DashboardCharts
+                    lineChartData={lineChartData}
+                    doughnutData={doughnutData}
+                    barData={debtBarData}
+                    downloadChartAsImage={downloadChartAsImage}
+                    lineChartRef={lineChartRef}
+                    doughnutChartRef={doughnutChartRef}
+                    barChartRef={barChartRef}
+                    darkMode={darkMode}
+                  />
+                </div>
+                <div className="h-full">
+                  <DashboardActivity items={recentActivities} darkMode={darkMode} />
+                </div>
+              </div>
 
-            <DashboardInsights
-              insights={insights}
-              darkMode={darkMode}
-              cardBgClass={cardBgClass}
-              textClass={textClass}
-              stats={stats}
-              categoryData={categoryData}
-            />
-
-            <div className="space-y-8">
-              <DashboardCharts
-                lineChartData={lineChartData}
-                doughnutData={doughnutData}
-                barData={debtBarData}
-                downloadChartAsImage={downloadChartAsImage}
-                lineChartRef={lineChartRef}
-                doughnutChartRef={doughnutChartRef}
-                barChartRef={barChartRef}
+              {/* Insights */}
+              <DashboardInsights
+                insights={[]} // Pass actual insights if available
                 darkMode={darkMode}
-                cardBgClass={cardBgClass}
-                textClass={textClass}
-              />
-              
-              <DashboardActivity
-                items={recentActivities}
-                darkMode={darkMode}
-                cardBgClass={cardBgClass}
-                textClass={textClass}
+                stats={stats}
+                categoryData={categoryData}
               />
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Analytics Tab - Enhanced */}
-        {activeTab === 'analytics' && analytics && (
-          <AnalyticsOverview
-            analytics={analytics}
-            darkMode={darkMode}
-            cardBgClass={cardBgClass}
-            textClass={textClass}
-          />
-        )}
+          {activeTab === 'analytics' && analytics && (
+            <AnalyticsOverview analytics={analytics} darkMode={darkMode} />
+          )}
 
-        {/* Budget Tab */}
-        {activeTab === 'budget' && (
-          <BudgetOverview
-            budgetWarnings={budgetWarnings}
-            darkMode={darkMode}
-            cardBgClass={cardBgClass}
-            textClass={textClass}
-          />
-        )}
+          {activeTab === 'budget' && (
+            <BudgetOverview budgetWarnings={budgetWarnings} darkMode={darkMode} />
+          )}
 
-        {/* History Tab */}
-        {activeTab === 'history' && (
-          <ExportHistoryTable
-            exportHistory={exportHistory}
-            darkMode={darkMode}
-            cardBgClass={cardBgClass}
-            textClass={textClass}
-          />
-        )}
+          {activeTab === 'history' && (
+            <ExportHistoryTable exportHistory={exportHistory} darkMode={darkMode} />
+          )}
+        </main>
+
+        <Footer />
       </div>
-
-      <Footer />
     </div>
   )
 }

@@ -71,83 +71,134 @@ export default function AppHeader({
   )
 
   const bgClass = darkMode
-    ? 'bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 text-white'
-    : 'bg-gradient-to-br from-[#0F172A] via-[#162347] to-[#0F172A] text-white'
+    ? 'bg-slate-950 text-white border-b border-white/10'
+    : 'bg-white text-slate-900 border-b border-gray-200 shadow-sm'
 
   const surfaceClass = darkMode
-    ? 'bg-white/5 border-white/10'
-    : 'bg-white/10 border-white/20'
+    ? 'bg-white/5 border border-white/10 hover:bg-white/10 text-white'
+    : 'bg-gray-100 border border-gray-200 hover:bg-gray-200 text-slate-900'
 
   const isActive = (href) =>
     router.pathname === href || router.pathname.startsWith(`${href}/`)
 
   return (
-    <header className={`${bgClass} relative overflow-visible`}>
-      <div className="pointer-events-none absolute inset-0 opacity-40">
-        <div className="absolute w-80 h-80 bg-blue-500/30 rounded-full blur-3xl -top-10 -left-16"></div>
-        <div className="absolute w-96 h-96 bg-emerald-400/20 rounded-full blur-3xl bottom-0 right-0"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.12),_transparent_55%)]"></div>
-      </div>
+    <header className={`relative z-30 ${bgClass} transition-colors duration-300`}>
+      {/* Background Effects - Only for Dark Mode */}
+      {darkMode && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl -translate-y-1/2"></div>
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl translate-y-1/2"></div>
+          <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-[0.03]"></div>
+        </div>
+      )}
 
-      <div className="relative max-w-6xl mx-auto px-6 py-6">
-        <div className="flex flex-col gap-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-4 min-w-0">
-              <div className="h-14 w-14 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center text-2xl shadow-lg shadow-black/20">
-                <span>{icon}</span>
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="flex flex-col gap-6">
+          {/* Top Section: Brand & User */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            {/* Brand */}
+            <div className="flex items-center gap-4">
+              <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-2xl shadow-lg ${darkMode ? 'bg-gradient-to-br from-blue-500 to-indigo-600 shadow-blue-500/20' : 'bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-blue-500/30'
+                }`}>
+                {icon}
               </div>
-              <div className="min-w-0 space-y-1">
-                <p className="text-[11px] uppercase tracking-[0.35em] text-white/60">{greeting}</p>
-                <div>
-                  <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-                  <p className="text-sm text-white/70 truncate">{subtitle}</p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${darkMode ? 'bg-white/10 text-white/80' : 'bg-blue-100 text-blue-700'
+                    }`}>
+                    Beta
+                  </span>
                 </div>
+                <p className={`text-sm font-medium ${darkMode ? 'text-white/60' : 'text-slate-500'}`}>
+                  {greeting}, {session?.user?.name?.split(' ')[0] || 'bạn'}
+                </p>
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-3 justify-between lg:justify-end">
-              <div className={`flex items-center gap-3 px-4 py-2 rounded-2xl border ${surfaceClass}`}>
-                <div className="text-left">
-                  <p className="text-[10px] uppercase tracking-[0.3em] text-white/60">Hôm nay</p>
-                  <p className="text-sm font-semibold">{formattedDate}</p>
-                </div>
-                <span className="text-white/30">•</span>
-                <div className="text-left">
-                  <p className="text-[10px] uppercase tracking-[0.3em] text-white/60">Đồng bộ</p>
-                  <p className="text-sm font-semibold">{formattedTime}</p>
-                </div>
+            {/* Right Actions */}
+            <div className="flex items-center gap-3 self-end lg:self-auto">
+              {/* Search */}
+              <div className={`hidden md:flex items-center gap-2 px-3 py-2 rounded-xl w-64 group focus-within:w-80 transition-all ${surfaceClass}`}>
+                <span className={`${darkMode ? 'text-white/40' : 'text-slate-400'}`}>🔍</span>
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm nhanh..."
+                  value={searchValue}
+                  onChange={(e) => setSearchValue(e.target.value)}
+                  className={`bg-transparent border-none outline-none text-sm w-full ${darkMode ? 'placeholder-white/40 text-white' : 'placeholder-slate-400 text-slate-900'}`}
+                />
+                <kbd className={`hidden group-focus-within:inline-flex h-5 items-center gap-1 rounded border px-1.5 font-mono text-[10px] font-medium ${darkMode ? 'border-white/20 bg-white/5 text-white/50' : 'border-gray-300 bg-white text-slate-500'
+                  }`}>
+                  <span className="text-xs">⌘</span>K
+                </kbd>
               </div>
-              <div className="flex items-center gap-2">
-                {showDarkModeToggle && setDarkMode && (
+
+              {/* Notifications */}
+              <button className={`h-10 w-10 rounded-xl flex items-center justify-center transition-colors ${surfaceClass}`}>
+                <span className="text-lg">🔔</span>
+              </button>
+
+              {/* User Menu */}
+              {session?.user ? (
+                <div className="relative" ref={userMenuRef}>
                   <button
-                    onClick={() => setDarkMode(!darkMode)}
-                    className="px-4 py-2 rounded-2xl border border-white/15 text-sm font-medium text-white/90 hover:bg-white/10 transition-all"
-                    title={darkMode ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className={`flex items-center gap-3 pl-2 pr-4 py-1.5 rounded-xl transition-all ${surfaceClass} ${showUserMenu ? (darkMode ? 'bg-white/15' : 'bg-gray-200') : ''}`}
                   >
-                    {darkMode ? '☀️ Sáng' : '🌙 Tối'}
+                    <img
+                      src={session.user.image || '/icons/icon-72x72.png'}
+                      alt="avatar"
+                      className="w-8 h-8 rounded-lg object-cover ring-2 ring-white/10"
+                    />
+                    <div className="hidden sm:block text-left">
+                      <p className={`text-xs font-bold ${darkMode ? 'text-white/90' : 'text-slate-900'}`}>{session.user.name}</p>
+                      <p className={`text-[10px] ${darkMode ? 'text-white/50' : 'text-slate-500'}`}>Premium</p>
+                    </div>
                   </button>
-                )}
-                <Link
-                  href="/dashboard-advanced"
-                  className="px-5 py-2 rounded-2xl bg-white text-slate-900 font-semibold shadow-lg shadow-black/25 hover:-translate-y-0.5 transition-transform whitespace-nowrap"
-                >
-                  Trung tâm báo cáo
+
+                  {/* Dropdown */}
+                  {showUserMenu && (
+                    <div className={`absolute right-0 mt-2 w-72 rounded-2xl border shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 ${darkMode ? 'bg-slate-900 border-white/10 shadow-black/50' : 'bg-white border-gray-200 shadow-slate-200'
+                      }`}>
+                      <div className={`p-4 border-b ${darkMode ? 'border-white/5 bg-white/5' : 'border-gray-100 bg-gray-50'}`}>
+                        <p className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-slate-900'}`}>{session.user.name}</p>
+                        <p className={`text-xs truncate ${darkMode ? 'text-white/50' : 'text-slate-500'}`}>{session.user.email}</p>
+                      </div>
+                      <div className="p-2 space-y-1">
+                        <Link href="/settings" className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${darkMode ? 'hover:bg-white/5 text-white/80 hover:text-white' : 'hover:bg-gray-100 text-slate-600 hover:text-slate-900'
+                          }`}>
+                          <span>⚙️</span> Cài đặt
+                        </Link>
+                        <button onClick={() => signOut()} className="flex items-center gap-3 w-full px-3 py-2 rounded-xl hover:bg-red-500/10 text-sm text-red-500 hover:text-red-600 transition-colors">
+                          <span>🚪</span> Đăng xuất
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Link href="/auth" className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20">
+                  Đăng nhập
                 </Link>
-              </div>
+              )}
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-            <nav className="flex flex-wrap gap-2 flex-1">
+          {/* Bottom Section: Navigation & Stats */}
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <nav className={`flex items-center gap-1 p-1.5 rounded-2xl border overflow-x-auto max-w-full ${darkMode ? 'bg-white/5 border-white/5' : 'bg-gray-100 border-gray-200'
+              }`}>
               {NAV_ITEMS.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-medium transition-all backdrop-blur-sm ${
-                    isActive(item.href)
-                      ? 'bg-white text-slate-900 shadow-lg shadow-black/25'
-                      : `${surfaceClass} text-white/80 hover:text-white`
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${isActive(item.href)
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : darkMode
+                        ? 'text-white/60 hover:text-white hover:bg-white/5'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-white shadow-sm'
+                    }`}
                 >
                   <span>{item.icon}</span>
                   <span>{item.label}</span>
@@ -155,112 +206,31 @@ export default function AppHeader({
               ))}
             </nav>
 
-            <div className="flex items-center gap-3">
-              <div className={`flex items-center gap-3 px-4 py-2 rounded-2xl min-w-[240px] ${surfaceClass}`}>
-                <span className="text-lg text-white/60">⌕</span>
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm báo cáo, giao dịch..."
-                  value={searchValue}
-                  onChange={(event) => setSearchValue(event.target.value)}
-                  className="bg-transparent text-sm text-white placeholder-white/40 focus:outline-none flex-1"
-                />
-                <span className="text-[10px] uppercase tracking-[0.3em] text-white/50">Ctrl K</span>
+            <div className={`flex items-center gap-4 text-sm hidden lg:flex ${darkMode ? 'text-white/60' : 'text-slate-500'}`}>
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border ${darkMode ? 'bg-white/5 border-white/5' : 'bg-gray-50 border-gray-200'
+                }`}>
+                <span>📅</span>
+                <span className="font-medium">{formattedDate}</span>
               </div>
-              <button
-                type="button"
-                className={`h-11 w-11 rounded-2xl flex items-center justify-center text-lg shadow-lg shadow-black/20 ${surfaceClass}`}
-                title="Thông báo"
-              >
-                🔔
-              </button>
-            </div>
-          </div>
-
-          <div className="flex justify-end">
-            {session?.user ? (
-              <div className="relative" ref={userMenuRef}>
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border ${darkMode ? 'bg-white/5 border-white/5' : 'bg-gray-50 border-gray-200'
+                }`}>
+                <span>⏰</span>
+                <span className="font-medium">{formattedTime}</span>
+              </div>
+              {showDarkModeToggle && setDarkMode && (
                 <button
-                  onClick={() => setShowUserMenu((prev) => !prev)}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-2xl border text-left shadow-lg shadow-black/20 ${surfaceClass} hover:bg-white/20 transition-colors min-w-[220px]`}
+                  onClick={() => setDarkMode(!darkMode)}
+                  className={`p-2 rounded-xl transition-colors ${darkMode ? 'hover:bg-white/10 text-yellow-400' : 'hover:bg-gray-200 text-slate-600'
+                    }`}
+                  title={darkMode ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
                 >
-                  <div className="hidden sm:block">
-                    <p className="text-xs text-white/60 uppercase tracking-[0.3em]">
-                      {session.user.name?.split(' ')[0] || 'Người dùng'}
-                    </p>
-                    <p className="text-sm font-semibold text-white">Quản lý tài khoản</p>
-                  </div>
-                  <div className="flex items-center gap-2 ms-auto">
-                    <img
-                      src={session.user.image || '/icons/icon-72x72.png'}
-                      alt="avatar"
-                      className="w-10 h-10 rounded-full border-2 border-white/40 object-cover"
-                    />
-                    <span className="text-xs text-white/70">
-                      {showUserMenu ? '▲' : '▼'}
-                    </span>
-                  </div>
+                  {darkMode ? '🌙' : '☀️'}
                 </button>
-
-                {showUserMenu && (
-                  <div
-                    className={`absolute right-0 mt-3 w-80 rounded-3xl border shadow-2xl shadow-black/40 overflow-hidden backdrop-blur-xl z-50 ${darkMode ? 'bg-slate-900/95 border-white/10' : 'bg-white/95 border-slate-200'}`}
-                  >
-                    <div className={`${darkMode ? 'bg-gradient-to-br from-slate-800/80 to-slate-900/60 text-white' : 'bg-gradient-to-br from-blue-50 to-blue-100 text-slate-900'} px-5 py-4`}>
-                      <p className="text-xs uppercase tracking-[0.4em] opacity-70">
-                        Tài khoản
-                      </p>
-                      <p className="text-lg font-semibold truncate">
-                        {session.user.name}
-                      </p>
-                      <p className="text-sm opacity-80 truncate">
-                        {session.user.email}
-                      </p>
-                    </div>
-
-                    <div className="p-3 space-y-2">
-                      <Link
-                        href="/settings"
-                        onClick={() => setShowUserMenu(false)}
-                        className="flex items-center gap-3 px-3 py-2 rounded-2xl text-sm font-medium hover:bg-black/5 transition-colors"
-                      >
-                        <span>⚙️</span>
-                        <span>Cài đặt tài khoản</span>
-                      </Link>
-                      <Link
-                        href="/transaction-history"
-                        onClick={() => setShowUserMenu(false)}
-                        className="flex items-center gap-3 px-3 py-2 rounded-2xl text-sm font-medium hover:bg-black/5 transition-colors"
-                      >
-                        <span>🧾</span>
-                        <span>Lịch sử giao dịch</span>
-                      </Link>
-                      <button
-                        onClick={() => {
-                          setShowUserMenu(false)
-                          signOut()
-                        }}
-                        className="flex items-center gap-3 w-full px-3 py-2 rounded-2xl text-sm font-semibold text-red-500 hover:bg-red-50/50 transition-colors"
-                      >
-                        <span>🚪</span>
-                        <span>Đăng xuất</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <Link
-                href="/auth"
-                className="px-5 py-2 rounded-2xl bg-white text-slate-900 font-semibold shadow-lg shadow-black/20 hover:translate-y-0.5 transition-transform"
-              >
-                Đăng nhập
-              </Link>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
     </header>
   )
 }
-
