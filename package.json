@@ -10,9 +10,16 @@
     "generate-icons": "node scripts/generate-icons.js",
     "verify-pwa": "node scripts/verify-pwa.js",
     "pwa:build": "npm run build && npm run start",
-    "pwa:analyze": "echo 'Open http://localhost:3000 and check DevTools > Application > Manifest'"
+    "pwa:analyze": "echo 'Open http://localhost:3000 and check DevTools > Application > Manifest'",
+    "cap:sync": "npx cap sync",
+    "cap:build": "npm run build && npx cap sync",
+    "cap:open": "npx cap open android",
+    "apk:build": "npm run build && npx cap sync && cd android && .\\gradlew assembleRelease"
   },
   "dependencies": {
+    "@capacitor/android": "^7.4.4",
+    "@capacitor/cli": "^7.4.4",
+    "@capacitor/core": "^7.4.4",
     "autoprefixer": "^10.4.14",
     "chart.js": "^4.4.0",
     "firebase": "^10.7.0",
