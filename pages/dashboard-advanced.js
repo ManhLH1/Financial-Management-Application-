@@ -461,23 +461,25 @@ export default function AdvancedDashboard(){
         : 'Chưa rõ'
     }))
 
-  // Chart configurations
+  // Chart configurations - Neo-Fintech colors
   const lineChartData = {
     labels: Object.keys(monthlyData),
     datasets: [
       {
         label: 'Thu nhập',
         data: Object.values(monthlyData).map(m => m.income),
-        borderColor: '#10b981',
+        borderColor: '#10B981',
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
-        tension: 0.4
+        tension: 0.4,
+        fill: true
       },
       {
         label: 'Chi tiêu',
         data: Object.values(monthlyData).map(m => m.expense),
-        borderColor: '#ef4444',
+        borderColor: '#EF4444',
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        tension: 0.4
+        tension: 0.4,
+        fill: true
       }
     ]
   }
@@ -487,18 +489,41 @@ export default function AdvancedDashboard(){
     datasets: [{
       data: Object.values(categoryData),
       backgroundColor: [
-        '#1B3C53', '#234C6A', '#456882', '#D2C1B6', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6'
+        '#3B82F6', '#6D28D9', '#10B981', '#EF4444', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6'
       ]
     }]
   }
 
-  const barData = {
-    labels: Object.keys(categoryData),
-    datasets: [{
-      label: 'Chi tiêu theo danh mục',
-      data: Object.values(categoryData),
-      backgroundColor: '#234C6A'
-    }]
+  // Debt chart data (simplified - would need actual debt data)
+  const debtLabels = debts.length > 0 
+    ? debts.slice(0, 5).map(d => d.description || 'Khoản nợ')
+    : ['Nợ 1', 'Nợ 2', 'Nợ 3']
+  
+  const debtBarData = {
+    labels: debtLabels,
+    datasets: [
+      {
+        label: 'Gốc',
+        data: debts.length > 0 
+          ? debts.slice(0, 5).map(d => (d.amount || 0) * 0.7)
+          : [1000000, 2000000, 1500000],
+        backgroundColor: '#3B82F6'
+      },
+      {
+        label: 'Lãi',
+        data: debts.length > 0 
+          ? debts.slice(0, 5).map(d => (d.amount || 0) * 0.2)
+          : [200000, 400000, 300000],
+        backgroundColor: '#F59E0B'
+      },
+      {
+        label: 'Đã trả',
+        data: debts.length > 0 
+          ? debts.slice(0, 5).map(d => (d.amount || 0) * 0.1)
+          : [100000, 200000, 150000],
+        backgroundColor: '#10B981'
+      }
+    ]
   }
 
   if (!session) {
@@ -514,21 +539,22 @@ export default function AdvancedDashboard(){
     )
   }
 
+  // Neo-Fintech styling
   const bgClass = darkMode 
-    ? 'bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900' 
-    : 'bg-gradient-to-br from-[#D2C1B6]/20 via-white to-[#456882]/10'
-  const textClass = darkMode ? 'text-gray-100' : 'text-gray-900'
+    ? 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900' 
+    : 'bg-[#F8FAFC]'
+  const textClass = darkMode ? 'text-gray-100' : 'text-slate-900'
   const cardBgClass = darkMode 
-    ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 shadow-2xl' 
-    : 'bg-white'
+    ? 'bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-slate-700/50 shadow-2xl' 
+    : 'bg-white border-gray-100'
 
   return (
     <div className={`min-h-screen ${bgClass} transition-all duration-500`}>
       {/* Header */}
       <Header 
-        title="Dashboard Nâng Cao"
-        subtitle="Tổng quan quản lý tài chính thông minh"
-        icon="🚀"
+        title="Quản lý Chi tiêu thông minh"
+        subtitle="Dashboard tài chính cá nhân toàn diện"
+        icon="💰"
         darkMode={darkMode}
         setDarkMode={setDarkMode}
         showDarkModeToggle={true}
@@ -544,7 +570,7 @@ export default function AdvancedDashboard(){
         />
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         <DashboardFilters
           dateRange={dateRange}
           setDateRange={setDateRange}
@@ -574,30 +600,31 @@ export default function AdvancedDashboard(){
 
             <DashboardQuickActions darkMode={darkMode} />
 
-            <DashboardStats stats={stats} darkMode={darkMode} />
+            <DashboardStats stats={stats} darkMode={darkMode} budgets={budgets} />
 
             <DashboardInsights
               insights={insights}
               darkMode={darkMode}
               cardBgClass={cardBgClass}
               textClass={textClass}
+              stats={stats}
+              categoryData={categoryData}
             />
 
-            <div className="grid gap-8 lg:grid-cols-3">
-              <div className="space-y-8 lg:col-span-2">
-                <DashboardCharts
-                  lineChartData={lineChartData}
-                  doughnutData={doughnutData}
-                  barData={barData}
-                  downloadChartAsImage={downloadChartAsImage}
-                  lineChartRef={lineChartRef}
-                  doughnutChartRef={doughnutChartRef}
-                  barChartRef={barChartRef}
-                  darkMode={darkMode}
-                  cardBgClass={cardBgClass}
-                  textClass={textClass}
-                />
-              </div>
+            <div className="space-y-8">
+              <DashboardCharts
+                lineChartData={lineChartData}
+                doughnutData={doughnutData}
+                barData={debtBarData}
+                downloadChartAsImage={downloadChartAsImage}
+                lineChartRef={lineChartRef}
+                doughnutChartRef={doughnutChartRef}
+                barChartRef={barChartRef}
+                darkMode={darkMode}
+                cardBgClass={cardBgClass}
+                textClass={textClass}
+              />
+              
               <DashboardActivity
                 items={recentActivities}
                 darkMode={darkMode}

@@ -12,13 +12,13 @@ export default function DashboardHero({ userName, summary, dateRange, darkMode }
   const savingsRate = Number.isFinite(summary.savingsRate) ? summary.savingsRate : 0
 
   const containerClass = darkMode
-    ? 'bg-gradient-to-br from-slate-900 via-slate-900/80 to-slate-800 border-white/5'
-    : 'bg-gradient-to-br from-[#E3F0FF] via-white to-[#FDF4FF] border-white shadow-lg'
+    ? 'bg-gradient-to-br from-slate-800/90 to-slate-900/90 border-slate-700/50'
+    : 'bg-white border-gray-100'
 
-  const textMuted = darkMode ? 'text-gray-300' : 'text-gray-600'
+  const textMuted = darkMode ? 'text-gray-400' : 'text-gray-600'
 
   return (
-    <section className={`relative overflow-hidden rounded-3xl border px-8 py-10 ${containerClass}`}>
+    <section className={`relative overflow-hidden rounded-[22px] border shadow-[0_24px_60px_rgba(15,23,42,0.06)] px-6 md:px-8 py-8 md:py-10 ${containerClass} mb-8`}>
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute -right-16 -top-24 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
         <div className="absolute -left-10 bottom-0 h-48 w-48 rounded-full bg-sky-500/10 blur-3xl" />
@@ -28,16 +28,16 @@ export default function DashboardHero({ userName, summary, dateRange, darkMode }
         <div className="flex-1 space-y-6">
           <div>
             <p
-              className={`text-sm uppercase tracking-[0.4em] ${
-                darkMode ? 'text-white/70' : 'text-gray-500'
+              className={`text-xs font-medium uppercase tracking-wider ${
+                darkMode ? 'text-gray-400' : 'text-gray-500'
               }`}
             >
               Xin chào, {userName}
             </p>
-            <h1 className={`mt-3 text-3xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <h1 className={`mt-2 text-2xl md:text-3xl font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
               Theo dõi tài chính của bạn cực kỳ trực quan
             </h1>
-            <p className={`mt-2 max-w-xl ${textMuted}`}>
+            <p className={`mt-3 max-w-xl text-sm ${textMuted}`}>
               Giai đoạn {dateRange.startDate} → {dateRange.endDate}. Cập nhật tức thời theo từng giao dịch,
               kèm dự báo và cảnh báo chi tiêu thông minh.
             </p>
@@ -53,7 +53,7 @@ export default function DashboardHero({ userName, summary, dateRange, darkMode }
             </span>
             <Link
               href="/reports"
-              className="rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-purple-500/30 hover:scale-[1.02] transition"
+              className="rounded-xl bg-gradient-to-r from-[#3B82F6] to-[#6D28D9] px-5 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5"
             >
               📄 Xem báo cáo chi tiết
             </Link>
@@ -65,21 +65,19 @@ export default function DashboardHero({ userName, summary, dateRange, darkMode }
               return (
                 <div
                   key={item.id}
-                  className={`rounded-2xl border p-4 backdrop-blur-sm ${
-                    darkMode ? 'border-white/10 bg-white/5' : 'border-white/60 bg-white/70'
+                  className={`rounded-xl border p-4 ${
+                    darkMode ? 'border-slate-700/50 bg-slate-800/50' : 'border-gray-100 bg-gray-50'
                   }`}
                 >
                   <p
-                    className={`text-sm uppercase tracking-[0.3em] ${
-                      darkMode ? 'text-white/60' : 'text-gray-500'
-                    }`}
+                    className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
                   >
                     {item.label}
                   </p>
-                  <p className={`mt-2 text-2xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  <p className={`mt-2 text-xl md:text-2xl font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
                     {Number(value || 0).toLocaleString('vi-VN')}đ
                   </p>
-                  <div className={`mt-4 h-1.5 rounded-full ${darkMode ? 'bg-white/10' : 'bg-gray-200'}`}>
+                  <div className={`mt-3 h-1.5 rounded-full ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}>
                     <div
                       className={`h-full rounded-full bg-gradient-to-r ${item.accent}`}
                       style={{
@@ -98,8 +96,8 @@ export default function DashboardHero({ userName, summary, dateRange, darkMode }
         </div>
 
         <div
-          className={`w-full max-w-sm rounded-3xl border px-6 py-6 backdrop-blur ${
-            darkMode ? 'border-white/10 bg-white/5' : 'border-gray-100 bg-white shadow-xl'
+          className={`w-full max-w-sm rounded-[22px] border px-6 py-6 ${
+            darkMode ? 'border-slate-700/50 bg-slate-800/50' : 'border-gray-100 bg-gray-50'
           }`}
         >
           <div className="flex items-center justify-between">

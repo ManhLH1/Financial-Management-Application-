@@ -3,10 +3,11 @@ import Link from 'next/link'
 const DEFAULT_ACTIONS = [
   {
     id: 'add-transaction',
-    label: 'Ghi giao dịch mới',
+    label: 'Ghi giao dịch',
     description: 'Thu hoặc chi',
     href: '/transactions/new',
-    accent: 'from-sky-500 to-cyan-500',
+    bgColor: '#EFF6FF',
+    iconColor: '#3B82F6',
     icon: '➕'
   },
   {
@@ -14,65 +15,67 @@ const DEFAULT_ACTIONS = [
     label: 'Thiết lập ngân sách',
     description: 'Kiểm soát từng danh mục',
     href: '/budgets',
-    accent: 'from-emerald-500 to-lime-500',
-    icon: '🎯'
+    bgColor: '#F3E8FF',
+    iconColor: '#6D28D9',
+    icon: '💰'
   },
   {
     id: 'add-debt',
     label: 'Theo dõi khoản nợ',
     description: 'Ghi chú và nhắc hạn',
     href: '/debts',
-    accent: 'from-amber-500 to-orange-500',
-    icon: '📝'
+    bgColor: '#FEF3C7',
+    iconColor: '#F59E0B',
+    icon: '📌'
   },
   {
     id: 'export-data',
     label: 'Xuất dữ liệu',
     description: 'Excel • PDF • CSV',
     href: '/exports',
-    accent: 'from-purple-500 to-indigo-500',
+    bgColor: '#ECFDF5',
+    iconColor: '#10B981',
     icon: '📤'
   }
 ]
 
 export default function DashboardQuickActions({ actions = DEFAULT_ACTIONS, darkMode }) {
-  const baseClass = darkMode
-    ? 'bg-white/5 border-white/10 hover:bg-white/10'
-    : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-lg'
-
   return (
-    <section className="mt-6">
-      <div className="flex items-center justify-between mb-4">
+    <section className="mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <p className={`text-sm uppercase tracking-[0.35em] ${darkMode ? 'text-white/60' : 'text-gray-400'}`}>
+          <p className={`text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
             Tác vụ nhanh
           </p>
-          <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+          <h3 className={`text-2xl font-bold mt-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
             Thao tác chỉ với một chạm
           </h3>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {actions.map((action) => (
           <Link
             key={action.id}
             href={action.href}
-            className={`${baseClass} group relative overflow-hidden rounded-2xl border p-4 transition-all duration-300`}
+            className={`group relative overflow-hidden rounded-[22px] p-6 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(15,23,42,0.12)] ${
+              darkMode 
+                ? 'bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50' 
+                : 'bg-white border border-gray-100'
+            }`}
+            style={!darkMode ? { backgroundColor: action.bgColor } : {}}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center text-center gap-3">
               <div
-                className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${action.accent} text-xl text-white shadow-lg shadow-black/10`}
+                className="flex h-16 w-16 items-center justify-center rounded-2xl text-3xl shadow-lg"
+                style={{ backgroundColor: action.iconColor + '20', color: action.iconColor }}
               >
                 {action.icon}
               </div>
               <div>
-                <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{action.label}</p>
-                <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>{action.description}</p>
+                <p className={`font-bold text-sm ${darkMode ? 'text-white' : 'text-slate-900'}`}>{action.label}</p>
+                <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{action.description}</p>
               </div>
             </div>
-            <div
-              className={`pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full bg-gradient-to-br opacity-0 transition group-hover:opacity-60 ${action.accent}`}
-            />
           </Link>
         ))}
       </div>
