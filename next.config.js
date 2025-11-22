@@ -77,7 +77,8 @@ const withPWA = require('next-pwa')({
 
 const nextConfig = {
   reactStrictMode: true,
-  output: 'export',
+  // Removed 'output: export' to support NextAuth.js which requires server-side rendering
+  // If you need static export for APK build, create a separate config file
   images: {
     unoptimized: true,
   },
