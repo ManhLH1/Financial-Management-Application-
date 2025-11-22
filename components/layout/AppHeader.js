@@ -139,6 +139,16 @@ export default function AppHeader({
                 <span className="text-lg">🔔</span>
               </button>
 
+              {/* Vocabulary App Link */}
+              <Link
+                href="/vocabulary"
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${darkMode ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:from-indigo-600 hover:to-purple-700' : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700'} shadow-lg shadow-indigo-500/20`}
+                title="Học từ vựng tiếng Anh"
+              >
+                <span>📚</span>
+                <span className="hidden sm:inline">Học Từ Vựng</span>
+              </Link>
+
               {/* User Menu */}
               {session?.user ? (
                 <div className="relative" ref={userMenuRef}>
