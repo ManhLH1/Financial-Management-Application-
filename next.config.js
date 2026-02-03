@@ -83,6 +83,16 @@ const nextConfig = {
     unoptimized: true,
   },
   trailingSlash: true,
+  webpack: (config, { isServer }) => {
+    // Ensure zustand and other ESM packages are resolved correctly
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+      }
+    }
+    return config
+  },
 }
 
 module.exports = withPWA(nextConfig)

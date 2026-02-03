@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '../auth/[...nextauth]'
-import { getOrCreateVocabularySpreadsheet, saveVocabularyWord } from '../../../lib/vocabularyHelper'
+import { getVocabularySpreadsheet, saveWord, wordExists } from '../../../lib/vocabularyDB'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -14,41 +14,41 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { word, phonetic, partOfSpeech, definition, example, audioUS, audioUK } = req.body
+    const { word, phonetic, partOfSpeech, definition, definitionEN, example, exampleEN, audioUS, audioUK } = req.body
 
     if (!word || typeof word !== 'string' || word.trim() === '') {
       return res.status(400).json({ error: 'Word is required' })
     }
 
     // Get or create vocabulary spreadsheet
-    const spreadsheetId = await getOrCreateVocabularySpreadsheet(
+    const spreadsheetId = await getVocabularySpreadsheet(
       session.accessToken,
       session.user.email
     )
 
     // Check if word already exists
-    const { getVocabularyWords } = await import('../../../lib/vocabularyHelper')
-    const existingWords = await getVocabularyWords(session.accessToken, spreadsheetId)
-    const wordExists = existingWords.some(w => w.word.toLowerCase() === word.toLowerCase())
+    const exists = await wordExists(session.accessToken, spreadsheetId, word.trim())
 
-    if (wordExists) {
+    if (exists) {
       return res.status(409).json({ error: 'Word already exists in your vocabulary list' })
     }
 
     // Save word
-    await saveVocabularyWord(session.accessToken, spreadsheetId, {
+    await saveWord(session.accessToken, spreadsheetId, {
       word: word.trim(),
       phonetic: phonetic || '',
       partOfSpeech: partOfSpeech || '',
       definition: definition || '',
+      definitionEN: definitionEN || '',
       example: example || '',
+      exampleEN: exampleEN || '',
       audioUS: audioUS || '',
       audioUK: audioUK || ''
     })
 
     return res.status(201).json({ success: true, message: 'Word saved successfully' })
   } catch (error) {
-    console.error('Error saving vocabulary word:', error)
+    console.error('❌ Error saving vocabulary word:', error)
     return res.status(500).json({ error: 'Failed to save word', details: error.message })
   }
 }

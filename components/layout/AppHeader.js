@@ -149,6 +149,16 @@ export default function AppHeader({
                 <span className="hidden sm:inline">Học Từ Vựng</span>
               </Link>
 
+              {/* Gym Workout App Link */}
+              <Link
+                href="/workout/dashboard"
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${darkMode ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700' : 'bg-gradient-to-r from-orange-600 to-red-600 text-white hover:from-orange-700 hover:to-red-700'} shadow-lg shadow-orange-500/20`}
+                title="Quản lý lịch tập gym"
+              >
+                <span>🏋️</span>
+                <span className="hidden sm:inline">Gym Workout</span>
+              </Link>
+
               {/* User Menu */}
               {session?.user ? (
                 <div className="relative" ref={userMenuRef}>

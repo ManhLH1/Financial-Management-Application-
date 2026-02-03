@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
-import Link from 'next/link'
+import VocabularyHeader from '../../components/vocabulary/VocabularyHeader'
+import Notification, { useNotification } from '../../components/Notification'
 
 export default function VocabularySearch() {
   const { data: session, status } = useSession()
@@ -13,6 +14,14 @@ export default function VocabularySearch() {
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [showEnglish, setShowEnglish] = useState(true)
+  const { notification, showNotification, hideNotification } = useNotification()
+  const quickMeaning = useMemo(() => {
+    if (!result) return ''
+    const text = result.simpleMeaning || result.definition || result.definitionEN || ''
+    if (!text) return ''
+    return text.length > 80 ? `${text.substring(0, 80)}…` : text
+  }, [result])
 
   if (status === 'unauthenticated') {
     router.push('/auth')
@@ -33,13 +42,18 @@ export default function VocabularySearch() {
       const data = await response.json()
 
       if (!response.ok) {
-        setError(data.error || 'Word not found')
+        const errorMsg = data.error || 'Word not found'
+        setError(errorMsg)
+        showNotification(`❌ ${errorMsg}`, 'error')
         return
       }
 
       setResult(data)
+      showNotification('✅ Tìm thấy từ vựng!', 'success', 2000)
     } catch (err) {
-      setError('Failed to search word. Please try again.')
+      const errorMsg = 'Failed to search word. Please try again.'
+      setError(errorMsg)
+      showNotification(`❌ ${errorMsg}`, 'error')
       console.error('Search error:', err)
     } finally {
       setLoading(false)
@@ -61,7 +75,9 @@ export default function VocabularySearch() {
           phonetic: result.phonetic,
           partOfSpeech: result.partOfSpeech,
           definition: result.definition,
+          definitionEN: result.definitionEN,
           example: result.example,
+          exampleEN: result.exampleEN,
           audioUS: result.audioUS,
           audioUK: result.audioUK
         })
@@ -71,12 +87,16 @@ export default function VocabularySearch() {
 
       if (!response.ok) {
         setError(data.error || 'Failed to save word')
+        showNotification(`❌ ${data.error || 'Failed to save word'}`, 'error')
         return
       }
 
       setSaved(true)
+      showNotification('✅ Đã lưu từ vựng vào danh sách của bạn!', 'success')
     } catch (err) {
-      setError('Failed to save word. Please try again.')
+      const errorMsg = 'Failed to save word. Please try again.'
+      setError(errorMsg)
+      showNotification('❌ Không thể lưu từ vựng. Vui lòng thử lại.', 'error')
       console.error('Save error:', err)
     } finally {
       setSaving(false)
@@ -90,137 +110,221 @@ export default function VocabularySearch() {
     }
   }
 
+  const heroStats = [
+    {
+      label: 'Chế độ hiển thị',
+      value: showEnglish ? 'Song ngữ' : 'Chỉ tiếng Việt',
+      badge: 'Tùy chọn nhanh'
+    },
+    {
+      label: 'Trạng thái lưu',
+      value: saved ? 'Đã đồng bộ Google Sheets' : 'Chưa lưu',
+      badge: saved ? 'Đồng bộ' : 'Chờ lưu'
+    },
+    {
+      label: 'Nguồn dữ liệu',
+      value: 'DictionaryAPI + LibreTranslate',
+      badge: 'Realtime'
+    }
+  ]
+
   return (
     <>
       <Head>
-        <title>Tra Cứu Từ Vựng - VocabLearn</title>
+        <title>Tra Cứu Từ Vựng - Financial Management</title>
       </Head>
 
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-        {/* Navigation */}
-        <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-40">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
-              <Link href="/vocabulary" className="text-indigo-600 hover:text-indigo-700 font-semibold">
-                ← Quay lại
-              </Link>
-              <Link
-                href="/"
-                className="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-full text-sm font-semibold hover:bg-indigo-200 transition-colors"
-              >
-                💰 Quản Lý Chi Tiêu
-              </Link>
-            </div>
-          </div>
+      <div className="relative min-h-screen bg-[#020617] text-white">
+        <div className="pointer-events-none fixed inset-0 overflow-hidden">
+          <div className="absolute -top-32 left-1/3 h-[420px] w-[420px] rounded-full bg-indigo-600/30 blur-[140px]" />
+          <div className="absolute top-1/2 right-10 h-[380px] w-[380px] rounded-full bg-purple-500/30 blur-[160px]" />
+          <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-[0.02]" />
         </div>
 
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8 text-center">🔍 Tra Cứu Từ Vựng</h1>
+        <VocabularyHeader />
 
-          {/* Search Form */}
-          <form onSubmit={handleSearch} className="mb-8">
-            <div className="flex gap-4">
-              <input
-                type="text"
-                value={searchWord}
-                onChange={(e) => setSearchWord(e.target.value)}
-                placeholder="Nhập từ vựng cần tra cứu..."
-                className="flex-1 px-6 py-4 rounded-2xl border-2 border-gray-200 focus:border-indigo-500 focus:outline-none text-lg"
-                disabled={loading}
-              />
-              <button
-                type="submit"
-                disabled={loading || !searchWord.trim()}
-                className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Đang tìm...' : 'Tìm kiếm'}
-              </button>
-            </div>
-          </form>
+        {notification && (
+          <Notification
+            message={notification.message}
+            type={notification.type}
+            onClose={hideNotification}
+            duration={notification.duration}
+          />
+        )}
 
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6">
-              <p className="text-red-800">{error}</p>
-            </div>
-          )}
-
-          {/* Success Message */}
-          {saved && (
-            <div className="bg-green-50 border border-green-200 rounded-2xl p-4 mb-6">
-              <p className="text-green-800">✓ Đã lưu từ vựng vào danh sách của bạn!</p>
-            </div>
-          )}
-
-          {/* Result */}
-          {result && (
-            <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
-              <div className="flex items-start justify-between mb-6">
+        <main className="relative z-10 mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+          <section className="grid gap-8 lg:grid-cols-[1.8fr,1fr]">
+            <form
+              onSubmit={handleSearch}
+              className="rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl shadow-indigo-900/30"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-3xl font-bold text-gray-900 mb-2">{result.word}</h2>
-                  {result.phonetic && (
-                    <p className="text-lg text-gray-600 italic">{result.phonetic}</p>
-                  )}
-                  {result.partOfSpeech && (
-                    <span className="inline-block mt-2 px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-semibold">
-                      {result.partOfSpeech}
-                    </span>
-                  )}
+                  <p className="text-sm uppercase tracking-[0.4em] text-white/60">Vocab Insight</p>
+                  <h1 className="mt-2 text-3xl font-bold">🔍 Tra cứu & đồng bộ ngay</h1>
+                  <p className="mt-1 text-white/70">
+                    Tìm nghĩa song ngữ, nghe phát âm và lưu trực tiếp vào sổ tay tài chính.
+                  </p>
                 </div>
-                <div className="flex gap-2">
-                  {result.audioUS && (
-                    <button
-                      onClick={() => playAudio(result.audioUS)}
-                      className="w-12 h-12 bg-blue-100 hover:bg-blue-200 rounded-full flex items-center justify-center transition-colors"
-                      title="Phát âm US"
-                    >
-                      <span className="text-xl">🔊</span>
-                    </button>
-                  )}
-                  {result.audioUK && (
-                    <button
-                      onClick={() => playAudio(result.audioUK)}
-                      className="w-12 h-12 bg-purple-100 hover:bg-purple-200 rounded-full flex items-center justify-center transition-colors"
-                      title="Phát âm UK"
-                    >
-                      <span className="text-xl">🔊</span>
-                    </button>
-                  )}
-                </div>
+                <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-200">
+                  Realtime Translate
+                </span>
               </div>
 
-              <div className="space-y-6">
-                {/* Definition */}
-                {result.definition && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Định nghĩa:</h3>
-                    <p className="text-gray-700 leading-relaxed">{result.definition}</p>
-                  </div>
-                )}
+              <div className="mt-6 flex flex-col gap-4 md:flex-row">
+                <div className="flex-1 rounded-2xl border border-white/10 bg-[#050b1e] px-5 py-4 shadow-inner shadow-black/30 focus-within:border-indigo-400 focus-within:ring-1 focus-within:ring-indigo-400">
+                  <label className="text-xs uppercase tracking-[0.3em] text-white/40">Từ cần tra cứu</label>
+                  <input
+                    type="text"
+                    value={searchWord}
+                    onChange={(e) => setSearchWord(e.target.value)}
+                    placeholder="Ví dụ: wealth, diversify, liability..."
+                    className="mt-1 w-full bg-transparent text-lg font-semibold text-white placeholder-white/30 focus:outline-none"
+                    disabled={loading}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading || !searchWord.trim()}
+                  className="w-full rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-8 py-4 text-lg font-semibold shadow-lg shadow-indigo-900/40 transition hover:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 md:w-auto"
+                >
+                  {loading ? 'Đang tìm...' : 'Tra cứu ngay'}
+                </button>
+              </div>
 
-                {/* Example */}
-                {result.example && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Ví dụ:</h3>
-                    <p className="text-gray-700 italic leading-relaxed">"{result.example}"</p>
-                  </div>
-                )}
+              {error && (
+                <div className="mt-4 rounded-2xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                  {error}
+                </div>
+              )}
+            </form>
 
-                {/* Full Meanings */}
-                {result.fullData?.meanings && result.fullData.meanings.length > 0 && (
+            <div className="space-y-4">
+              {heroStats.map((stat) => (
+                <div
+                  key={stat.label}
+                  className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-black/20"
+                >
+                  <p className="text-xs uppercase tracking-[0.3em] text-white/50">{stat.badge}</p>
+                  <p className="mt-1 text-sm text-white/70">{stat.label}</p>
+                  <p className="text-xl font-semibold text-white">{stat.value}</p>
+                </div>
+              ))}
+
+              <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-blue-500/20 via-indigo-500/10 to-transparent p-5 shadow-lg shadow-indigo-900/40">
+                <p className="text-sm font-semibold text-white/80">📈 Đồng bộ hệ sinh thái</p>
+                <p className="mt-2 text-sm text-white/60">
+                  Mọi từ vựng đã lưu sẽ xuất hiện trong báo cáo học tập và sổ tay tài chính,
+                  giúp bạn ghi nhớ khái niệm khi phân tích chi tiêu.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {result && (
+            <section className="mt-10 space-y-6">
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl shadow-black/30">
+                <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Các nghĩa khác:</h3>
-                    <div className="space-y-4">
+                    <p className="text-sm uppercase tracking-[0.3em] text-white/60">Từ khóa</p>
+                    <h2 className="text-4xl font-bold">{result.word}</h2>
+                    {quickMeaning && (
+                      <p className="mt-2 text-emerald-200 text-xl font-semibold">
+                        {result.word} = <span className="text-white">{quickMeaning}</span>
+                      </p>
+                    )}
+                    {result.phonetic && <p className="mt-2 text-lg text-white/70 italic">{result.phonetic}</p>}
+                    {result.partOfSpeech && (
+                      <span className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm font-semibold text-indigo-200">
+                        🏷️ {result.partOfSpeech}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {result.audioUS && (
+                      <button
+                        onClick={() => playAudio(result.audioUS)}
+                        className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-xl text-white transition hover:bg-white/20"
+                        title="Phát âm US"
+                      >
+                        🔊
+                      </button>
+                    )}
+                    {result.audioUK && (
+                      <button
+                        onClick={() => playAudio(result.audioUK)}
+                        className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-xl text-white transition hover:bg-white/20"
+                        title="Phát âm UK"
+                      >
+                        🔊
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+                  <span className="rounded-full border border-white/15 px-3 py-1 text-xs uppercase tracking-[0.3em] text-white/60">
+                    Dịch sân chơi tài chính
+                  </span>
+                  <button
+                    onClick={() => setShowEnglish(!showEnglish)}
+                    className="rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/40"
+                  >
+                    {showEnglish ? '🇻🇳 Chỉ hiển thị tiếng Việt' : '🇬🇧 Hiển thị song ngữ'}
+                  </button>
+                </div>
+
+                <div className="mt-8 grid gap-6 md:grid-cols-2">
+                  {result.definition && (
+                    <div className="rounded-2xl border border-indigo-400/30 bg-indigo-500/10 p-6">
+                      <div className="flex items-center justify-between text-sm text-indigo-100/80">
+                        <span className="font-semibold uppercase tracking-[0.2em]">Định nghĩa</span>
+                        <span>🇻🇳</span>
+                      </div>
+                      <p className="mt-3 text-lg text-white/90">{result.definition}</p>
+
+                      {showEnglish && result.definitionEN && result.definitionEN !== result.definition && (
+                        <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+                          <span className="text-xs uppercase tracking-[0.3em] text-white/40">English</span>
+                          <p className="mt-1 italic">{result.definitionEN}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {result.example && (
+                    <div className="rounded-2xl border border-pink-400/30 bg-pink-500/10 p-6">
+                      <div className="flex items-center justify-between text-sm text-pink-100/80">
+                        <span className="font-semibold uppercase tracking-[0.2em]">Ví dụ thực tế</span>
+                        <span>🇻🇳</span>
+                      </div>
+                      <p className="mt-3 text-lg italic text-white/90">&ldquo;{result.example}&rdquo;</p>
+
+                      {showEnglish && result.exampleEN && result.exampleEN !== result.example && (
+                        <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+                          <span className="text-xs uppercase tracking-[0.3em] text-white/40">English</span>
+                          <p className="mt-1 italic">&ldquo;{result.exampleEN}&rdquo;</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {result.fullData?.meanings?.length > 0 && (
+                  <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-6">
+                    <p className="text-sm uppercase tracking-[0.3em] text-white/50">Các nghĩa bổ sung</p>
+                    <div className="mt-4 space-y-4">
                       {result.fullData.meanings.map((meaning, idx) => (
-                        <div key={idx} className="border-l-4 border-indigo-500 pl-4">
-                          <p className="font-semibold text-indigo-700 mb-2">{meaning.partOfSpeech}</p>
-                          <ul className="space-y-2">
+                        <div key={`${meaning.partOfSpeech}-${idx}`} className="rounded-2xl border border-white/10 bg-[#050b1e] p-4">
+                          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-indigo-200">
+                            {meaning.partOfSpeech}
+                          </p>
+                          <ul className="mt-3 space-y-2 text-sm text-white/80">
                             {meaning.definitions?.slice(0, 3).map((def, defIdx) => (
-                              <li key={defIdx} className="text-gray-700">
-                                <span className="font-medium">{defIdx + 1}.</span> {def.definition}
-                                {def.example && (
-                                  <p className="text-gray-600 italic mt-1 ml-4">"{def.example}"</p>
-                                )}
+                              <li key={defIdx}>
+                                <span className="font-semibold text-indigo-200">#{defIdx + 1}</span> {def.definition}
+                                {def.example && <p className="ml-4 text-white/60 italic">&ldquo;{def.example}&rdquo;</p>}
                               </li>
                             ))}
                           </ul>
@@ -230,21 +334,18 @@ export default function VocabularySearch() {
                   </div>
                 )}
 
-                {/* Save Button */}
                 <button
                   onClick={handleSave}
                   disabled={saving || saved}
-                  className="w-full px-6 py-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-2xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="mt-8 w-full rounded-2xl bg-gradient-to-r from-emerald-500 via-green-500 to-lime-400 px-6 py-4 text-lg font-semibold text-slate-900 shadow-xl shadow-emerald-900/30 transition hover:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {saving ? 'Đang lưu...' : saved ? '✓ Đã lưu' : '💾 Lưu vào danh sách từ vựng'}
+                  {saving ? 'Đang lưu...' : saved ? '✓ Đã đồng bộ với Google Sheets' : '💾 Lưu vào danh sách học'}
                 </button>
               </div>
-            </div>
+            </section>
           )}
-        </div>
+        </main>
       </div>
     </>
   )
 }
-
-
