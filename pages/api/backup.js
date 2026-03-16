@@ -22,17 +22,19 @@ export default async function handler(req, res) {
 
     if (action === 'backup') {
       // Fetch all data
+      const baseUrl = req.headers.origin || process.env.NEXTAUTH_URL || 'http://localhost:3000'
+
       const [expRes, debtRes, budgetRes, recurringRes] = await Promise.all([
-        fetch(`http://localhost:3000/api/expenses`, {
+        fetch(`${baseUrl}/api/expenses`, {
           headers: { cookie: req.headers.cookie }
         }),
-        fetch(`http://localhost:3000/api/debts`, {
+        fetch(`${baseUrl}/api/debts`, {
           headers: { cookie: req.headers.cookie }
         }),
-        fetch(`http://localhost:3000/api/budgets`, {
+        fetch(`${baseUrl}/api/budgets`, {
           headers: { cookie: req.headers.cookie }
         }).catch(() => ({ json: async () => ({ budgets: [] }) })),
-        fetch(`http://localhost:3000/api/recurring-expenses`, {
+        fetch(`${baseUrl}/api/recurring-expenses`, {
           headers: { cookie: req.headers.cookie }
         }).catch(() => ({ json: async () => ({ recurringExpenses: [] }) }))
       ])
@@ -46,7 +48,7 @@ export default async function handler(req, res) {
       const backup = {
         version: '1.0',
         timestamp: new Date().toISOString(),
-        spreadsheetId: process.env.GOOGLE_SHEET_ID,
+        spreadsheetId: budgets?.spreadsheetId || expenses?.spreadsheetId || debts?.spreadsheetId || recurring?.spreadsheetId || null,
         user: session.user.email,
         data: {
           expenses: expenses.items || [],

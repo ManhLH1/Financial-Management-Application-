@@ -1,10 +1,10 @@
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from './auth/[...nextauth]'
 import { getSheetsClient } from '../../lib/googleClient'
-import { getOrCreateSpreadsheet } from '../../lib/sheetsHelper'
+import { getOrCreateSpreadsheet, SHEETS, ensureSheet } from '../../lib/sheetsHelper'
 import { sendEmail } from '../../lib/emailHelper'
 
-const SHEET_NAME = 'RecurringExpenses'
+const SHEET_NAME = SHEETS.RECURRING_EXPENSES
 
 /**
  * API endpoint for Recurring Expenses Reminders
@@ -26,21 +26,31 @@ export default async function handler(req, res) {
       
       console.log(`🔔 [Recurring Reminders] Using spreadsheet: ${spreadsheetId}`)
 
+      await ensureSheet(session.accessToken, spreadsheetId, SHEET_NAME, [
+        'ID',
+        'Title',
+        'Amount',
+        'Category',
+        'Frequency',
+        'Day Of Month',
+        'Next Due',
+        'Is Active',
+        'Created At'
+      ])
+
       // Get all active recurring expenses
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${SHEET_NAME}!A2:H`
+        range: `${SHEET_NAME}!A2:I`
       })
 
       const rows = response.data.values || []
       const today = new Date()
-      const threeDaysFromNow = new Date(today)
-      threeDaysFromNow.setDate(today.getDate() + 3)
 
       const upcomingReminders = []
 
       for (const row of rows) {
-        const isActive = row[7] === 'true'
+        const isActive = row[7] === 'true' || row[7] === true
         if (!isActive) continue
 
         const recurringId = row[0]
@@ -146,10 +156,24 @@ export default async function handler(req, res) {
         return res.status(401).json({ error: 'Not authenticated' })
       }
 
+      const spreadsheetId = await getOrCreateSpreadsheet(session.accessToken, session.user.email)
       const sheets = getSheetsClient(session.accessToken)
+
+      await ensureSheet(session.accessToken, spreadsheetId, SHEET_NAME, [
+        'ID',
+        'Title',
+        'Amount',
+        'Category',
+        'Frequency',
+        'Day Of Month',
+        'Next Due',
+        'Is Active',
+        'Created At'
+      ])
+
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${SHEET_NAME}!A2:H`
+        range: `${SHEET_NAME}!A2:I`
       })
 
       const rows = response.data.values || []
@@ -157,7 +181,7 @@ export default async function handler(req, res) {
       const upcoming = []
 
       for (const row of rows) {
-        const isActive = row[7] === 'true'
+        const isActive = row[7] === 'true' || row[7] === true
         if (!isActive) continue
 
         const nextDue = new Date(row[6])

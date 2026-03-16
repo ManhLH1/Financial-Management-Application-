@@ -38,6 +38,24 @@ export default async function handler(req, res) {
         contentType: format === 'excel' ? 'text/csv' : 'text/csv'
       }]
     })
+
+    try {
+      await fetch(`${req.headers.origin || process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/export-history`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'cookie': req.headers.cookie
+        },
+        body: JSON.stringify({
+          filename,
+          format: format || 'csv',
+          month: month || new Date().toISOString().slice(0, 7),
+          fileSize: `${csvContent.length} bytes`
+        })
+      })
+    } catch (historyError) {
+      console.warn('Failed to write export history:', historyError)
+    }
     
     // Return download data
     const downloadUrl = `data:text/csv;charset=utf-8,${encodeURIComponent(csvContent)}`
@@ -46,7 +64,10 @@ export default async function handler(req, res) {
       success: true,
       message: 'Export thành công và đã gửi email',
       filename,
-      downloadUrl
+      downloadUrl,
+      meta: {
+        sentAt: new Date().toISOString()
+      }
     })
     
   } catch (error) {

@@ -18,10 +18,12 @@ export default async function handler(req, res) {
     const spreadsheetId = await getOrCreateSpreadsheet(session.accessToken, session.user.email)
     const sheets = getSheetsClient(session.accessToken)
     
+    const { startDate, endDate } = req.query
+
     // Get all expenses and income from Expenses sheet
     const expensesData = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `${SHEETS.EXPENSES}!A2:G1000`
+      range: `${SHEETS.EXPENSES}!A2:H1000`
     })
     
     const rows = expensesData.data.values || []
@@ -41,8 +43,12 @@ export default async function handler(req, res) {
       
       const amount = parseFloat(row[2]) || 0
       const category = row[3] || 'Khác'
-      const type = row[6] || 'expense' // type: expense or income
+      const date = row[4]
+      const type = row[5] || 'expense' // type: expense or income
       
+      if (startDate && date && date < startDate) return
+      if (endDate && date && date > endDate) return
+
       if (type === 'income') {
         totalIncome += amount
         if (!categories.income[category]) {
@@ -80,6 +86,10 @@ export default async function handler(req, res) {
       savingsPercent,
       totalExpenses,
       totalIncome,
+      range: {
+        startDate: startDate || null,
+        endDate: endDate || null
+      },
       categories: {
         expenses: Object.entries(categories.expenses).map(([name, data]) => ({
           name,
@@ -98,7 +108,7 @@ export default async function handler(req, res) {
       }
     }
     
-    return res.status(200).json(summary)
+    return res.status(200).json({ summary })
     
   } catch (error) {
     console.error('Error fetching budget summary:', error)

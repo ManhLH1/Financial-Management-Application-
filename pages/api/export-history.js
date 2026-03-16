@@ -1,8 +1,10 @@
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from './auth/[...nextauth]'
 import { getSheetsClient } from '../../lib/googleClient'
+import { getOrCreateSpreadsheet, SHEETS, ensureSheet } from '../../lib/sheetsHelper'
+import { exportHistorySchema } from '../../lib/financeSchemas'
 
-const SHEET_NAME = 'ExportHistory'
+const SHEET_NAME = SHEETS.EXPORT_HISTORY
 
 /**
  * API endpoint for Export History
@@ -16,16 +18,26 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Not authenticated' })
   }
 
-  const spreadsheetId = process.env.GOOGLE_SHEET_ID
+  const spreadsheetId = await getOrCreateSpreadsheet(session.accessToken, session.user.email)
 
   try {
     const sheets = getSheetsClient(session.accessToken)
+
+    await ensureSheet(session.accessToken, spreadsheetId, SHEET_NAME, [
+      'ID',
+      'Filename',
+      'Format',
+      'Month',
+      'Export Date',
+      'File Size',
+      'User Email'
+    ])
 
     if (req.method === 'GET') {
       // Get all export history
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${SHEET_NAME}!A2:F`
+        range: `${SHEET_NAME}!A2:G`
       })
 
       const rows = response.data.values || []
@@ -35,28 +47,34 @@ export default async function handler(req, res) {
         format: row[2],
         month: row[3],
         exportDate: row[4],
-        fileSize: row[5]
+        fileSize: row[5],
+        userEmail: row[6]
       }))
 
-      return res.status(200).json({ history })
+      return res.status(200).json({ history, meta: { count: history.length } })
     }
 
     if (req.method === 'POST') {
-      // Add new export record
-      const { filename, format, month, fileSize } = req.body
+      const parsed = exportHistorySchema.safeParse(req.body)
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Dữ liệu không hợp lệ', details: parsed.error.flatten() })
+      }
+
+      const { filename, format, month, fileSize } = parsed.data
 
       const newRecord = [
         Date.now().toString(),
         filename,
         format,
-        month,
+        month || '',
         new Date().toISOString(),
-        fileSize || 'N/A'
+        fileSize || 'N/A',
+        session.user.email
       ]
 
       await sheets.spreadsheets.values.append({
         spreadsheetId,
-        range: `${SHEET_NAME}!A:F`,
+        range: `${SHEET_NAME}!A:G`,
         valueInputOption: 'RAW',
         resource: {
           values: [newRecord]
@@ -72,7 +90,8 @@ export default async function handler(req, res) {
           format: newRecord[2],
           month: newRecord[3],
           exportDate: newRecord[4],
-          fileSize: newRecord[5]
+          fileSize: newRecord[5],
+          userEmail: newRecord[6]
         }
       })
     }

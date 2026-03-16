@@ -1,9 +1,10 @@
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from './auth/[...nextauth]'
 import { getSheetsClient } from '../../lib/googleClient'
-import { getOrCreateSpreadsheet } from '../../lib/sheetsHelper'
+import { getOrCreateSpreadsheet, SHEETS, ensureSheet, getSheetId } from '../../lib/sheetsHelper'
+import { recurringExpenseSchema, recurringExpenseUpdateSchema, deleteSchema } from '../../lib/financeSchemas'
 
-const SHEET_NAME = 'RecurringExpenses'
+const SHEET_NAME = SHEETS.RECURRING_EXPENSES
 
 /**
  * API endpoint for Recurring Expenses
@@ -26,11 +27,23 @@ export default async function handler(req, res) {
     
     console.log(`🔄 [Recurring Expenses] Using spreadsheet: ${spreadsheetId}`)
 
+    await ensureSheet(session.accessToken, spreadsheetId, SHEET_NAME, [
+      'ID',
+      'Title',
+      'Amount',
+      'Category',
+      'Frequency',
+      'Day Of Month',
+      'Next Due',
+      'Is Active',
+      'Created At'
+    ])
+
     if (req.method === 'GET') {
       // Get all recurring expenses
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${SHEET_NAME}!A2:H`
+        range: `${SHEET_NAME}!A2:I`
       })
 
       const rows = response.data.values || []
@@ -39,18 +52,23 @@ export default async function handler(req, res) {
         title: row[1],
         amount: Number(row[2]),
         category: row[3],
-        frequency: row[4], // 'daily', 'weekly', 'monthly', 'yearly'
-        dayOfMonth: row[5] ? Number(row[5]) : null, // For monthly: 1-31
+        frequency: row[4],
+        dayOfMonth: row[5] ? Number(row[5]) : null,
         nextDue: row[6],
-        isActive: row[7] === 'true'
+        isActive: row[7] === 'true' || row[7] === true,
+        createdAt: row[8]
       }))
 
-      return res.status(200).json({ recurringExpenses })
+      return res.status(200).json({ items: recurringExpenses, meta: { count: recurringExpenses.length } })
     }
 
     if (req.method === 'POST') {
-      // Create new recurring expense
-      const { title, amount, category, frequency, dayOfMonth, nextDue } = req.body
+      const parsed = recurringExpenseSchema.safeParse(req.body)
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Dữ liệu không hợp lệ', details: parsed.error.flatten() })
+      }
+
+      const { title, amount, category, frequency, dayOfMonth, nextDue, isActive } = parsed.data
 
       const newRecurring = [
         Date.now().toString(),
@@ -60,22 +78,21 @@ export default async function handler(req, res) {
         frequency,
         dayOfMonth || '',
         nextDue || new Date().toISOString().split('T')[0],
-        'true'
+        isActive ? 'true' : 'false',
+        new Date().toISOString()
       ]
 
       await sheets.spreadsheets.values.append({
         spreadsheetId,
-        range: `${SHEET_NAME}!A:H`,
+        range: `${SHEET_NAME}!A:I`,
         valueInputOption: 'RAW',
         resource: {
           values: [newRecurring]
         }
       })
 
-      return res.status(200).json({ 
-        success: true, 
-        message: 'Recurring expense created',
-        recurring: {
+      return res.status(201).json({
+        item: {
           id: newRecurring[0],
           title: newRecurring[1],
           amount: Number(newRecurring[2]),
@@ -83,18 +100,23 @@ export default async function handler(req, res) {
           frequency: newRecurring[4],
           dayOfMonth: newRecurring[5] ? Number(newRecurring[5]) : null,
           nextDue: newRecurring[6],
-          isActive: true
+          isActive: newRecurring[7] === 'true',
+          createdAt: newRecurring[8]
         }
       })
     }
 
     if (req.method === 'PUT') {
-      // Update recurring expense
-      const { id, title, amount, category, frequency, dayOfMonth, nextDue, isActive } = req.body
+      const parsed = recurringExpenseUpdateSchema.safeParse(req.body)
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Dữ liệu không hợp lệ', details: parsed.error.flatten() })
+      }
+
+      const { id, title, amount, category, frequency, dayOfMonth, nextDue, isActive } = parsed.data
 
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${SHEET_NAME}!A2:H`
+        range: `${SHEET_NAME}!A2:I`
       })
 
       const rows = response.data.values || []
@@ -104,62 +126,51 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: 'Recurring expense not found' })
       }
 
+      const currentRow = rows[rowIndex]
+
       const updatedRecurring = [
         id,
-        title,
-        amount,
-        category,
-        frequency,
-        dayOfMonth || '',
-        nextDue,
-        isActive ? 'true' : 'false'
+        title ?? currentRow[1],
+        amount ?? currentRow[2],
+        category ?? currentRow[3],
+        frequency ?? currentRow[4],
+        dayOfMonth ?? currentRow[5] ?? '',
+        nextDue ?? currentRow[6],
+        isActive !== undefined ? (isActive ? 'true' : 'false') : currentRow[7],
+        currentRow[8] || new Date().toISOString()
       ]
 
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `${SHEET_NAME}!A${rowIndex + 2}:H${rowIndex + 2}`,
+        range: `${SHEET_NAME}!A${rowIndex + 2}:I${rowIndex + 2}`,
         valueInputOption: 'RAW',
         resource: {
           values: [updatedRecurring]
         }
       })
 
-      return res.status(200).json({ 
-        success: true, 
-        message: 'Recurring expense updated'
-      })
+      return res.status(200).json({ ok: true })
     }
 
     if (req.method === 'DELETE') {
-      // Delete recurring expense
-      const { id } = req.query
-
-      if (!id) {
-        return res.status(400).json({ error: 'ID is required' })
+      const parsed = deleteSchema.safeParse({ id: req.body?.id || req.query?.id, reason: req.body?.reason })
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Lý do xóa là bắt buộc', details: parsed.error.flatten() })
       }
 
-      // Get sheet metadata to find RecurringExpenses sheetId
-      const spreadsheet = await sheets.spreadsheets.get({
-        spreadsheetId
-      })
+      const sheetId = await getSheetId(session.accessToken, spreadsheetId, SHEET_NAME)
 
-      const recurringSheet = spreadsheet.data.sheets.find(
-        sheet => sheet.properties.title === SHEET_NAME
-      )
-
-      if (!recurringSheet) {
+      if (sheetId === null) {
         return res.status(404).json({ error: 'RecurringExpenses sheet not found' })
       }
 
-      const sheetId = recurringSheet.properties.sheetId
-
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${SHEET_NAME}!A2:H`
+        range: `${SHEET_NAME}!A2:I`
       })
 
       const rows = response.data.values || []
-      const rowIndex = rows.findIndex(row => row[0] === String(id))
+      const rowIndex = rows.findIndex(row => row[0] === String(parsed.data.id))
 
       if (rowIndex === -1) {
         return res.status(404).json({ error: 'Recurring expense not found' })
@@ -171,7 +182,7 @@ export default async function handler(req, res) {
           requests: [{
             deleteDimension: {
               range: {
-                sheetId: sheetId,
+                sheetId,
                 dimension: 'ROWS',
                 startIndex: rowIndex + 1,
                 endIndex: rowIndex + 2
@@ -181,12 +192,9 @@ export default async function handler(req, res) {
         }
       })
 
-      console.log(`✅ Deleted recurring expense: ${id}`)
+      console.log(`✅ Deleted recurring expense: ${parsed.data.id}`)
 
-      return res.status(200).json({ 
-        success: true, 
-        message: 'Recurring expense deleted'
-      })
+      return res.status(200).json({ ok: true })
     }
 
     return res.status(405).json({ error: 'Method not allowed' })

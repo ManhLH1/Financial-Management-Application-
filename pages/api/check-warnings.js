@@ -96,7 +96,10 @@ export default async function handler(req, res) {
         daysUntil: w.daysUntil,
         level: w.level
       })),
-      autoSent
+      autoSent,
+      meta: {
+        checkedAt: new Date().toISOString()
+      }
     })
     
   } catch (error) {
