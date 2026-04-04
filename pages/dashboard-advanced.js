@@ -1,73 +1,144 @@
 import Link from 'next/link'
-import { useSession, signOut } from 'next-auth/react'
-import { useState, useEffect, useRef } from 'react'
-import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Filler } from 'chart.js'
-import Notification, { useNotification } from '../components/Notification'
-import Footer from '../components/Footer'
-import Header from '../components/Header'
-import DashboardFilters from '../components/dashboard/DashboardFilters'
+import { useSession } from 'next-auth/react'
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/router'
+import AppShell from '../components/layout/AppShell'
 
-import DashboardHero from '../components/dashboard/DashboardHero'
-import DashboardQuickActions from '../components/dashboard/DashboardQuickActions'
-import DashboardStats from '../components/dashboard/DashboardStats'
-import DashboardInsights from '../components/dashboard/DashboardInsights'
-import DashboardCharts from '../components/dashboard/DashboardCharts'
-import DashboardActivity from '../components/dashboard/DashboardActivity'
-import AnalyticsOverview from '../components/dashboard/AnalyticsOverview'
-import BudgetOverview from '../components/dashboard/BudgetOverview'
-import ExportHistoryTable from '../components/dashboard/ExportHistoryTable'
-
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Filler)
+const translations = {
+  vi: {
+    privateBanking: 'Private Banking',
+    overview: 'Tổng quan',
+    wallet: 'Ví',
+    budgets: 'Ngân sách',
+    reports: 'Báo cáo',
+    settings: 'Cài đặt',
+    newTransaction: 'Giao dịch mới',
+    searchPlaceholder: 'Tìm kiếm giao dịch hoặc báo cáo...',
+    headerTagline: 'Trí tuệ Tài chính Biên tập',
+    premiumMember: 'Premium Member',
+    totalAssets: 'TỔNG TÀI SẢN HIỆN TẠI',
+    comparedLastMonth: 'so với tháng trước',
+    totalIncome: 'Tổng Thu Nhập',
+    totalExpense: 'Tổng Chi Tiêu',
+    aiAnalysis: 'Phân tích từ AI',
+    aiDetail: 'Xem chi tiết phân tích',
+    expenseTx: 'Giao dịch chi',
+    incomeTx: 'Giao dịch thu',
+    debt: 'Khoản nợ',
+    savings: 'Tiết kiệm',
+    expense: 'Expense',
+    income: 'Income',
+    debtBadge: 'Debt',
+    savingsBadge: 'Savings',
+    cashflow: 'Xu hướng dòng tiền',
+    sixMonths: 'Dữ liệu 6 tháng gần nhất',
+    incomeLegend: 'Thu nhập',
+    expenseLegend: 'Chi tiêu',
+    spendingAllocation: 'Phân bổ chi tiêu',
+    month: 'Tháng',
+    noData: 'Chưa có dữ liệu',
+    recentTransactions: 'Giao dịch gần đây',
+    viewAll: 'Xem tất cả lịch sử',
+    categoryNote: 'Danh mục & Ghi chú',
+    date: 'Ngày thực hiện',
+    amount: 'Số tiền',
+    status: 'Trạng thái',
+    completed: 'Hoàn tất',
+    pending: 'Đang chờ',
+    emptyTx: 'Chưa có giao dịch trong khoảng thời gian đã chọn.',
+    logout: 'Đăng xuất',
+    helpCenter: 'Trung tâm trợ giúp',
+    terms: 'Điều khoản dịch vụ',
+    privacy: 'Chính sách bảo mật',
+    footerBrand: 'TRÍ TUỆ TÀI CHÍNH BIÊN TẬP',
+    user: 'Người dùng',
+    overBudgetPart1: 'Bạn đang có',
+    overBudgetPart2: 'giao dịch chi trong kỳ.',
+    overBudgetWarning: 'ngân sách đang gần chạm ngưỡng cảnh báo, ưu tiên kiểm soát nhóm chi lớn nhất.',
+    overBudgetNormal: 'Mức chi hiện ổn định so với ngân sách đã đặt.'
+  },
+  en: {
+    privateBanking: 'Private Banking',
+    overview: 'Overview',
+    wallet: 'Wallet',
+    budgets: 'Budgets',
+    reports: 'Reports',
+    settings: 'Settings',
+    newTransaction: 'New transaction',
+    searchPlaceholder: 'Search transactions or reports...',
+    headerTagline: 'Curated Financial Intelligence',
+    premiumMember: 'Premium Member',
+    totalAssets: 'TOTAL CURRENT ASSETS',
+    comparedLastMonth: 'vs last month',
+    totalIncome: 'Total Income',
+    totalExpense: 'Total Expense',
+    aiAnalysis: 'AI Analysis',
+    aiDetail: 'View detailed analysis',
+    expenseTx: 'Expense transactions',
+    incomeTx: 'Income transactions',
+    debt: 'Debt',
+    savings: 'Savings',
+    expense: 'Expense',
+    income: 'Income',
+    debtBadge: 'Debt',
+    savingsBadge: 'Savings',
+    cashflow: 'Cashflow trend',
+    sixMonths: 'Last 6 months',
+    incomeLegend: 'Income',
+    expenseLegend: 'Expense',
+    spendingAllocation: 'Spending allocation',
+    month: 'Month',
+    noData: 'No data',
+    recentTransactions: 'Recent transactions',
+    viewAll: 'View full history',
+    categoryNote: 'Category & Note',
+    date: 'Date',
+    amount: 'Amount',
+    status: 'Status',
+    completed: 'Completed',
+    pending: 'Pending',
+    emptyTx: 'No transactions in selected date range.',
+    logout: 'Sign out',
+    helpCenter: 'Help Center',
+    terms: 'Terms of Service',
+    privacy: 'Privacy Policy',
+    footerBrand: 'CURATED FINANCIAL INTELLIGENCE',
+    user: 'User',
+    overBudgetPart1: 'You have',
+    overBudgetPart2: 'expense transactions in this period.',
+    overBudgetWarning: 'budgets are near warning threshold, prioritize highest spending groups.',
+    overBudgetNormal: 'Your spending is currently stable against budgets.'
+  }
+}
 
 export default function AdvancedDashboard() {
   const { data: session } = useSession()
+  const router = useRouter()
   const [expenses, setExpenses] = useState([])
   const [debts, setDebts] = useState([])
-  const [isLoading, setIsLoading] = useState(false)
-  const { notification, showNotification, hideNotification } = useNotification()
+  const [budgets, setBudgets] = useState([])
+  const [lastFetchTime, setLastFetchTime] = useState(0)
+  const [language, setLanguage] = useState('vi')
 
-  const [dateRange, setDateRange] = useState({
+  const [dateRange] = useState({
     startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0]
   })
 
-  const [analytics, setAnalytics] = useState(null)
-  const [budgets, setBudgets] = useState([])
-  const [exportHistory, setExportHistory] = useState([])
-
-  const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('darkMode')
-      return saved ? JSON.parse(saved) : true // Default to dark mode for premium feel
-    }
-    return true
-  })
-
-  const [activeTab, setActiveTab] = useState('overview')
-  const [lastFetchTime, setLastFetchTime] = useState(0)
-
-  const lineChartRef = useRef(null)
-  const doughnutChartRef = useRef(null)
-  const barChartRef = useRef(null)
+  const t = translations[language] || translations.vi
 
   useEffect(() => {
-    localStorage.setItem('darkMode', JSON.stringify(darkMode))
-    if (darkMode) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-  }, [darkMode])
+    document.documentElement.classList.add('dark')
+    const savedLanguage = localStorage.getItem('app_language')
+    if (savedLanguage === 'vi' || savedLanguage === 'en') setLanguage(savedLanguage)
 
-  useEffect(() => {
     const cachedExpenses = localStorage.getItem('expenses_cache')
     const cachedDebts = localStorage.getItem('debts_cache')
     const cachedTimestamp = localStorage.getItem('data_cache_timestamp')
 
     if (cachedExpenses && cachedDebts) {
-      const timestamp = parseInt(cachedTimestamp || '0')
-      const now = Date.now()
-      if (now - timestamp < 5 * 60 * 1000) {
+      const timestamp = parseInt(cachedTimestamp || '0', 10)
+      if (Date.now() - timestamp < 5 * 60 * 1000) {
         setExpenses(JSON.parse(cachedExpenses))
         setDebts(JSON.parse(cachedDebts))
         setLastFetchTime(timestamp)
@@ -76,24 +147,20 @@ export default function AdvancedDashboard() {
   }, [])
 
   useEffect(() => {
-    if (session) {
-      const now = Date.now()
-      if (now - lastFetchTime > 5 * 60 * 1000) {
-        fetchMainData()
-      }
-      if (activeTab === 'analytics' && !analytics) fetchAnalytics()
-      else if (activeTab === 'budget' && budgets.length === 0) fetchBudgets()
-      else if (activeTab === 'history' && exportHistory.length === 0) fetchExportHistory()
+    localStorage.setItem('app_language', language)
+  }, [language])
+
+  useEffect(() => {
+    if (!session) return
+    if (Date.now() - lastFetchTime > 5 * 60 * 1000) {
+      fetchMainData()
+      fetchBudgets()
     }
-  }, [session, activeTab])
+  }, [session])
 
   async function fetchMainData() {
     try {
-      const [expRes, debtRes] = await Promise.all([
-        fetch('/api/expenses'),
-        fetch('/api/debts')
-      ])
-
+      const [expRes, debtRes] = await Promise.all([fetch('/api/expenses'), fetch('/api/debts')])
       const expData = await expRes.json()
       const debtData = await debtRes.json()
 
@@ -112,16 +179,6 @@ export default function AdvancedDashboard() {
     }
   }
 
-  async function fetchAnalytics() {
-    try {
-      const res = await fetch('/api/analytics')
-      const data = await res.json()
-      setAnalytics(data)
-    } catch (error) {
-      console.error('Error fetching analytics:', error)
-    }
-  }
-
   async function fetchBudgets() {
     try {
       const res = await fetch('/api/budgets')
@@ -132,35 +189,17 @@ export default function AdvancedDashboard() {
     }
   }
 
-  async function fetchExportHistory() {
-    try {
-      const res = await fetch('/api/export-history')
-      const data = await res.json()
-      setExportHistory(data.history || [])
-    } catch (error) {
-      console.error('Error fetching export history:', error)
-    }
-  }
-
-  async function fetchAllData() {
-    await fetchMainData()
-    if (activeTab === 'analytics') await fetchAnalytics()
-    if (activeTab === 'budget') await fetchBudgets()
-    if (activeTab === 'history') await fetchExportHistory()
-  }
-
-  const filteredExpenses = expenses.filter(e => {
-    if (!e.date) return false
-    return e.date >= dateRange.startDate && e.date <= dateRange.endDate
-  })
+  const filteredExpenses = useMemo(
+    () => expenses.filter(e => e.date && e.date >= dateRange.startDate && e.date <= dateRange.endDate),
+    [expenses, dateRange]
+  )
 
   const stats = {
     totalExpense: filteredExpenses.filter(e => e.type === 'expense').reduce((sum, e) => sum + (e.amount || 0), 0),
     totalIncome: filteredExpenses.filter(e => e.type === 'income').reduce((sum, e) => sum + (e.amount || 0), 0),
     totalDebt: debts.filter(d => d.status !== 'paid').reduce((sum, d) => sum + (d.amount || 0), 0),
     expenseCount: filteredExpenses.filter(e => e.type === 'expense').length,
-    incomeCount: filteredExpenses.filter(e => e.type === 'income').length,
-    debtCount: debts.filter(d => d.status !== 'paid').length
+    incomeCount: filteredExpenses.filter(e => e.type === 'income').length
   }
   stats.balance = stats.totalIncome - stats.totalExpense
 
@@ -169,329 +208,276 @@ export default function AdvancedDashboard() {
       .filter(e => e.type === 'expense' && e.category === budget.category)
       .reduce((sum, e) => sum + (e.amount || 0), 0)
 
-    const percentage = budget.amount > 0 ? (categoryExpenses / budget.amount * 100).toFixed(1) : 0
-    const isWarning = percentage >= budget.alertThreshold
-
-    return {
-      ...budget,
-      spent: categoryExpenses,
-      percentage,
-      isWarning,
-      remaining: budget.amount - categoryExpenses
-    }
+    const percentage = budget.amount > 0 ? Number(((categoryExpenses / budget.amount) * 100).toFixed(1)) : 0
+    return { ...budget, percentage }
   })
 
   const categoryData = {}
-  filteredExpenses.filter(e => e.type === 'expense').forEach(e => {
-    categoryData[e.category] = (categoryData[e.category] || 0) + e.amount
-  })
+  filteredExpenses
+    .filter(e => e.type === 'expense')
+    .forEach(e => {
+      const key = e.category || t.noData
+      categoryData[key] = (categoryData[key] || 0) + (e.amount || 0)
+    })
+
+  const topCategories = Object.entries(categoryData)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
 
   const monthlyData = {}
   const now = new Date()
-  for (let i = 5; i >= 0; i--) {
-    const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    const key = date.toISOString().slice(0, 7)
-    monthlyData[key] = { expense: 0, income: 0 }
+  for (let i = 5; i >= 0; i -= 1) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    monthlyData[d.toISOString().slice(0, 7)] = { expense: 0, income: 0 }
   }
 
   expenses.forEach(e => {
     const month = e.date?.slice(0, 7)
     if (monthlyData[month]) {
-      if (e.type === 'expense') monthlyData[month].expense += e.amount
-      else monthlyData[month].income += e.amount
+      if (e.type === 'expense') monthlyData[month].expense += e.amount || 0
+      if (e.type === 'income') monthlyData[month].income += e.amount || 0
     }
   })
 
-  async function exportData(format = 'csv') {
-    setIsLoading(true)
-    try {
-      showNotification('⏳ Đang xuất dữ liệu...', 'info', 3000)
-      const response = await fetch('/api/export', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ format, expenses: filteredExpenses, debts, stats, dateRange })
-      })
-      const data = await response.json()
-      if (response.ok) {
-        if (data.downloadUrl) {
-          const link = document.createElement('a')
-          link.href = data.downloadUrl
-          link.download = data.filename
-          link.click()
-        }
-        await fetch('/api/export-history', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            filename: data.filename,
-            format,
-            month: `${dateRange.startDate} to ${dateRange.endDate}`,
-            fileSize: 'N/A'
-          })
-        })
-        await fetchAllData()
-        showNotification(`✅ Xuất thành công!`, 'success')
-      } else {
-        showNotification(`❌ ${data.error || 'Lỗi xuất dữ liệu'}`, 'error')
-      }
-    } catch (error) {
-      showNotification('❌ Không thể xuất dữ liệu', 'error')
-    } finally {
-      setIsLoading(false)
-    }
+  const monthKeys = Object.keys(monthlyData)
+  const maxFlow = Math.max(1, ...Object.values(monthlyData).flatMap(m => [m.expense, m.income]))
+  const savingsValue = Math.max(stats.balance, 0)
+  const savingsRate = stats.totalIncome > 0 ? ((savingsValue / stats.totalIncome) * 100).toFixed(1) : '0.0'
+  const budgetAlert = budgetWarnings.filter(b => b.percentage >= (b.alertThreshold || 80)).length
+
+  const recentActivities = filteredExpenses.slice().sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5)
+
+  const formatMoney = value => {
+    const locale = language === 'en' ? 'en-US' : 'vi-VN'
+    const currency = language === 'en' ? 'USD' : 'VND'
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0
+    }).format(value || 0)
   }
 
-  async function handleBackup() {
-    setIsLoading(true)
-    try {
-      showNotification('💾 Đang tạo backup...', 'info', 3000)
-      const response = await fetch('/api/backup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'backup' })
-      })
-      const data = await response.json()
-      if (response.ok) {
-        const link = document.createElement('a')
-        link.href = data.downloadUrl
-        link.download = data.filename
-        link.click()
-        showNotification(`✅ Backup thành công!`, 'success')
-      } else {
-        showNotification(`❌ ${data.error || 'Lỗi tạo backup'}`, 'error')
-      }
-    } catch (error) {
-      showNotification('❌ Không thể tạo backup', 'error')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  function downloadChartAsImage(chartRef, chartName) {
-    if (chartRef.current) {
-      const canvas = chartRef.current.canvas
-      if (canvas) {
-        canvas.toBlob((blob) => {
-          const url = URL.createObjectURL(blob)
-          const link = document.createElement('a')
-          link.download = `${chartName}-${new Date().toISOString().split('T')[0]}.png`
-          link.href = url
-          link.click()
-          showNotification('✅ Đã tải ảnh biểu đồ!', 'success')
-        })
-      }
-    }
-  }
-
-  const savingsRate = stats.totalIncome > 0 ? ((stats.totalIncome - stats.totalExpense) / stats.totalIncome) * 100 : 0
-  const heroSummary = {
-    totalIncome: stats.totalIncome,
-    totalExpense: stats.totalExpense,
-    balance: stats.balance,
-    savingsRate
-  }
-
-  const recentActivities = filteredExpenses
-    .slice()
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 6)
-    .map((item, index) => ({
-      id: item.id || `${item.date}-${index}`,
-      title: item.description || item.note || item.category || 'Giao dịch',
-      amount: item.amount || 0,
-      type: item.type || 'other',
-      category: item.category || 'Khác',
-      dateLabel: item.date ? new Date(item.date).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' }) : 'Chưa rõ'
-    }))
-
-  const lineChartData = {
-    labels: Object.keys(monthlyData),
-    datasets: [
-      {
-        label: 'Thu nhập',
-        data: Object.values(monthlyData).map(m => m.income),
-        borderColor: '#34D399', // Emerald 400
-        backgroundColor: (context) => {
-          const ctx = context.chart.ctx;
-          const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-          gradient.addColorStop(0, 'rgba(52, 211, 153, 0.2)');
-          gradient.addColorStop(1, 'rgba(52, 211, 153, 0)');
-          return gradient;
-        },
-        tension: 0.4,
-        fill: true,
-        pointRadius: 0,
-        pointHoverRadius: 6,
-        borderWidth: 3
-      },
-      {
-        label: 'Chi tiêu',
-        data: Object.values(monthlyData).map(m => m.expense),
-        borderColor: '#FB7185', // Rose 400
-        backgroundColor: (context) => {
-          const ctx = context.chart.ctx;
-          const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-          gradient.addColorStop(0, 'rgba(251, 113, 133, 0.2)');
-          gradient.addColorStop(1, 'rgba(251, 113, 133, 0)');
-          return gradient;
-        },
-        tension: 0.4,
-        fill: true,
-        pointRadius: 0,
-        pointHoverRadius: 6,
-        borderWidth: 3
-      }
-    ]
-  }
-
-  const doughnutData = {
-    labels: Object.keys(categoryData),
-    datasets: [{
-      data: Object.values(categoryData),
-      backgroundColor: [
-        '#60A5FA', // Blue 400
-        '#A78BFA', // Violet 400
-        '#34D399', // Emerald 400
-        '#FB7185', // Rose 400
-        '#FBBF24', // Amber 400
-        '#F472B6', // Pink 400
-        '#818CF8', // Indigo 400
-        '#2DD4BF'  // Teal 400
-      ],
-      borderWidth: 0,
-      hoverOffset: 4
-    }]
-  }
-
-  const debtBarData = {
-    labels: debts.slice(0, 5).map(d => d.description || 'Khoản nợ'),
-    datasets: [
-      { label: 'Gốc', data: debts.slice(0, 5).map(d => (d.amount || 0) * 0.7), backgroundColor: '#3B82F6' },
-      { label: 'Lãi', data: debts.slice(0, 5).map(d => (d.amount || 0) * 0.2), backgroundColor: '#F59E0B' },
-      { label: 'Đã trả', data: debts.slice(0, 5).map(d => (d.amount || 0) * 0.1), backgroundColor: '#10B981' }
-    ]
+  const displayDate = date => {
+    if (!date) return t.noData
+    return new Date(date).toLocaleDateString(language === 'en' ? 'en-US' : 'vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    })
   }
 
   if (!session) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#020617] text-white">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold mb-6">Quản Lý Chi Tiêu</h2>
-          <Link href="/auth" className="px-8 py-4 bg-indigo-600 rounded-2xl font-bold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-500/30">
-            Đăng nhập ngay
-          </Link>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-[#0b1326] text-[#dae2fd]">
+        <Link href="/auth" className="px-8 py-4 bg-[#2e5bff] rounded-2xl font-bold">
+          Login
+        </Link>
       </div>
     )
   }
 
   return (
-    <div className={`min-h-screen transition-colors duration-500 font-sans ${darkMode ? 'bg-[#020617] text-slate-200' : 'bg-slate-50 text-slate-900'
-      }`}>
-
-      {/* Background Gradients */}
-      {darkMode && (
-        <div className="fixed inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-[-10%] right-[-10%] w-[800px] h-[800px] bg-indigo-900/20 rounded-full blur-[120px] opacity-30"></div>
-          <div className="absolute bottom-[-10%] left-[-10%] w-[800px] h-[800px] bg-blue-900/20 rounded-full blur-[120px] opacity-30"></div>
+    <AppShell
+      title="Dashboard"
+      activeMenu="overview"
+      primaryActionLabel={t.newTransaction}
+      onPrimaryAction={() => router.push('/transactions/new')}
+      session={session}
+      searchPlaceholder={t.searchPlaceholder}
+      rightActions={(
+        <div className="flex items-center gap-2">
+          <button onClick={() => setLanguage(prev => (prev === 'vi' ? 'en' : 'vi'))} className="px-3 py-1.5 rounded-lg bg-[#2e5bff]/10 text-[#b8c3ff] font-bold text-xs">{language === 'vi' ? 'VI' : 'EN'}</button>
+          <button className="p-2 text-[#dae2fd]/60 hover:bg-[#2d3449]/50 rounded-full"><span className="material-symbols-outlined">notifications</span></button>
+          <button className="p-2 text-[#dae2fd]/60 hover:bg-[#2d3449]/50 rounded-full"><span className="material-symbols-outlined">settings</span></button>
         </div>
       )}
+      headerTabs={<span className="text-[#c4c5d9] text-sm">{t.headerTagline}</span>}
+    >
+      <div className="space-y-10">
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 bg-[rgba(45,52,73,0.6)] backdrop-blur-[20px] border border-[#434656]/15 rounded-[2rem] p-10 relative overflow-hidden min-h-[340px] flex flex-col justify-between">
+            <div className="absolute -right-20 -top-20 w-80 h-80 bg-[#2e5bff]/10 blur-[100px] rounded-full"></div>
+            <div className="relative z-10">
+              <p className="text-[0.75rem] font-semibold text-[#b8c3ff] uppercase tracking-[0.2em] mb-4">{t.totalAssets}</p>
+              <h2 className="text-6xl font-bold tracking-tighter mb-2">{formatMoney(stats.balance + stats.totalDebt)}</h2>
+              <div className="flex items-center gap-3 px-3 py-1 bg-[#4edea3]/10 border border-[#4edea3]/20 rounded-full w-fit">
+                <span className="material-symbols-outlined text-[#4edea3] text-sm">trending_up</span>
+                <span className="text-sm font-bold text-[#4edea3]">+{savingsRate}% {t.comparedLastMonth}</span>
+              </div>
+            </div>
 
-      <div className="relative z-10">
-        <Header
-          title="Dashboard"
-          subtitle="Tổng quan tài chính"
-          icon="⚡"
-          darkMode={darkMode}
-          setDarkMode={setDarkMode}
-          showDarkModeToggle={true}
-        />
-
-        {notification && (
-          <Notification
-            message={notification.message}
-            type={notification.type}
-            onClose={hideNotification}
-            duration={notification.duration}
-          />
-        )}
-
-        <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-          {/* Top Controls */}
-          <div className="flex flex-col md:flex-row justify-end items-center gap-4">
-
-            <DashboardFilters
-              dateRange={dateRange}
-              setDateRange={setDateRange}
-              onExport={exportData}
-              onBackup={handleBackup}
-              isLoading={isLoading}
-              darkMode={darkMode}
-            />
+            <div className="relative z-10 grid grid-cols-2 gap-8 mt-12">
+              <div className="space-y-1">
+                <p className="text-[0.7rem] font-semibold text-[#c4c5d9]/60 uppercase tracking-widest">{t.totalIncome}</p>
+                <span className="text-2xl font-bold text-[#4edea3] tracking-tight">{formatMoney(stats.totalIncome)}</span>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[0.7rem] font-semibold text-[#c4c5d9]/60 uppercase tracking-widest">{t.totalExpense}</p>
+                <span className="text-2xl font-bold text-[#ffb3b6] tracking-tight">{formatMoney(stats.totalExpense)}</span>
+              </div>
+            </div>
           </div>
 
-          {activeTab === 'overview' && (
-            <div className="animate-fade-in space-y-8">
-              {/* Hero Section */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2">
-                  <DashboardHero
-                    userName={session.user?.name?.split(' ')[0] || 'bạn'}
-                    summary={heroSummary}
-                    dateRange={dateRange}
-                    darkMode={darkMode}
-                  />
-                </div>
-                <div className="flex flex-col justify-between gap-6">
-                  <DashboardStats stats={stats} darkMode={darkMode} />
-                  <DashboardQuickActions darkMode={darkMode} />
-                </div>
+          <div className="bg-[rgba(45,52,73,0.6)] backdrop-blur-[20px] border border-[#434656]/15 rounded-[2rem] p-8 flex flex-col justify-between">
+            <div>
+              <div className="w-12 h-12 bg-[#2e5bff]/20 rounded-xl flex items-center justify-center mb-6">
+                <span className="material-symbols-outlined text-[#b8c3ff]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
               </div>
-
-              {/* Charts & Activity */}
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                <div className="xl:col-span-2">
-                  <DashboardCharts
-                    lineChartData={lineChartData}
-                    doughnutData={doughnutData}
-                    barData={debtBarData}
-                    downloadChartAsImage={downloadChartAsImage}
-                    lineChartRef={lineChartRef}
-                    doughnutChartRef={doughnutChartRef}
-                    barChartRef={barChartRef}
-                    darkMode={darkMode}
-                  />
-                </div>
-                <div className="h-full">
-                  <DashboardActivity items={recentActivities} darkMode={darkMode} />
-                </div>
-              </div>
-
-              {/* Insights */}
-              <DashboardInsights
-                insights={[]} // Pass actual insights if available
-                darkMode={darkMode}
-                stats={stats}
-                categoryData={categoryData}
-              />
+              <h3 className="text-xl font-bold mb-4">{t.aiAnalysis}</h3>
+              <p className="text-[#c4c5d9] leading-relaxed">
+                {t.overBudgetPart1} <span className="text-[#b8c3ff] font-bold">{stats.expenseCount}</span> {t.overBudgetPart2}{' '}
+                {budgetAlert > 0 ? `${budgetAlert} ${t.overBudgetWarning}` : t.overBudgetNormal}
+              </p>
             </div>
-          )}
+            <Link href="/budgets" className="mt-8 text-[#b8c3ff] text-sm font-bold flex items-center gap-2 hover:gap-3 transition-all">
+              {t.aiDetail}
+              <span className="material-symbols-outlined text-lg">arrow_forward</span>
+            </Link>
+          </div>
+        </section>
 
-          {activeTab === 'analytics' && analytics && (
-            <AnalyticsOverview analytics={analytics} darkMode={darkMode} />
-          )}
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatCard icon="payments" badge={t.expense} title={t.expenseTx} value={formatMoney(stats.totalExpense)} color="text-[#ffb3b6]" iconBg="bg-[#ffb3b6]/10" />
+          <StatCard icon="account_balance" badge={t.income} title={t.incomeTx} value={formatMoney(stats.totalIncome)} color="text-[#4edea3]" iconBg="bg-[#4edea3]/10" />
+          <StatCard icon="credit_card" badge={t.debtBadge} title={t.debt} value={formatMoney(stats.totalDebt)} color="text-orange-400" iconBg="bg-orange-400/10" />
+          <StatCard icon="savings" badge={t.savingsBadge} title={t.savings} value={formatMoney(savingsValue)} color="text-[#b8c3ff]" iconBg="bg-[#b8c3ff]/10" />
+        </section>
 
-          {activeTab === 'budget' && (
-            <BudgetOverview budgetWarnings={budgetWarnings} darkMode={darkMode} />
-          )}
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 bg-[rgba(45,52,73,0.6)] backdrop-blur-[20px] border border-[#434656]/15 rounded-[2rem] p-8">
+            <div className="flex items-center justify-between mb-10">
+              <div>
+                <h3 className="text-xl font-bold">{t.cashflow}</h3>
+                <p className="text-xs text-[#c4c5d9]/60 mt-1">{t.sixMonths}</p>
+              </div>
+              <div className="flex gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-[#4edea3]"></span>
+                  <span className="text-xs font-semibold">{t.incomeLegend}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-[#ffb3b6]"></span>
+                  <span className="text-xs font-semibold">{t.expenseLegend}</span>
+                </div>
+              </div>
+            </div>
 
-          {activeTab === 'history' && (
-            <ExportHistoryTable exportHistory={exportHistory} darkMode={darkMode} />
-          )}
-        </main>
+            <div className="relative h-64 w-full flex items-end justify-between px-4">
+              <div className="absolute inset-x-0 bottom-0 h-[1px] bg-[#434656]/20"></div>
+              {monthKeys.map((month, index) => {
+                const incomeHeight = Math.max(12, (monthlyData[month].income / maxFlow) * 95)
+                const expenseHeight = Math.max(12, (monthlyData[month].expense / maxFlow) * 95)
+                const label = index === monthKeys.length - 1 ? (language === 'en' ? 'Now' : 'Hiện tại') : `T${new Date(`${month}-01`).getMonth() + 1}`
+                return (
+                  <div key={`${month}-${index}`} className="flex flex-col items-center gap-2 flex-1 group cursor-pointer">
+                    <div className="w-full flex items-end justify-center gap-1.5 h-full pb-4">
+                      <div className="w-6 bg-[#4edea3]/20 rounded-t-lg group-hover:bg-[#4edea3]/40 transition-all" style={{ height: `${incomeHeight}%` }}></div>
+                      <div className="w-6 bg-[#ffb3b6]/20 rounded-t-lg group-hover:bg-[#ffb3b6]/40 transition-all" style={{ height: `${expenseHeight}%` }}></div>
+                    </div>
+                    <span className={`text-[0.65rem] font-bold uppercase ${index === monthKeys.length - 1 ? 'text-[#b8c3ff]' : 'text-[#c4c5d9]'}`}>{label}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
 
-        <Footer />
+          <div className="bg-[rgba(45,52,73,0.6)] backdrop-blur-[20px] border border-[#434656]/15 rounded-[2rem] p-8">
+            <h3 className="text-xl font-bold mb-8">{t.spendingAllocation}</h3>
+            <div className="relative flex items-center justify-center h-48 mb-10">
+              <div className="w-40 h-40 rounded-full border-[12px] border-[#2d3449] relative">
+                <div className="absolute inset-0 rounded-full border-[12px] border-t-[#4edea3] border-r-[#b8c3ff] border-l-transparent border-b-transparent -rotate-45"></div>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-[0.6rem] font-bold text-[#c4c5d9] uppercase">{t.month} {new Date().getMonth() + 1}</span>
+                  <span className="text-lg font-bold">100%</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {(topCategories.length ? topCategories : [[t.noData, 0]]).map(([name, amount], idx) => {
+                const total = topCategories.reduce((sum, item) => sum + item[1], 0) || 1
+                const ratio = Math.round((amount / total) * 100)
+                const dots = ['bg-[#4edea3]', 'bg-[#b8c3ff]', 'bg-[#ffb3b6]', 'bg-orange-400']
+                return (
+                  <div key={`${name}-${idx}`} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2 h-2 rounded-full ${dots[idx % dots.length]}`}></div>
+                      <span className="text-sm font-medium">{name}</span>
+                    </div>
+                    <span className="text-sm font-bold">{ratio}%</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-[rgba(45,52,73,0.6)] backdrop-blur-[20px] border border-[#434656]/15 rounded-[2rem] p-10">
+          <div className="flex items-center justify-between mb-10">
+            <h3 className="text-2xl font-bold">{t.recentTransactions}</h3>
+            <Link href="/transaction-history" className="text-sm font-bold text-[#b8c3ff] hover:underline underline-offset-8">{t.viewAll}</Link>
+          </div>
+
+          <div className="space-y-2">
+            <div className="grid grid-cols-12 gap-4 px-6 py-4 text-[0.7rem] font-bold text-[#c4c5d9] uppercase tracking-[0.1em] opacity-60">
+              <div className="col-span-5">{t.categoryNote}</div>
+              <div className="col-span-3">{t.date}</div>
+              <div className="col-span-2 text-right">{t.amount}</div>
+              <div className="col-span-2 text-right">{t.status}</div>
+            </div>
+
+            {recentActivities.map((item, idx) => {
+              const isExpense = item.type === 'expense'
+              const amountColor = isExpense ? 'text-[#ffb3b6]' : 'text-[#4edea3]'
+              const amountPrefix = isExpense ? '-' : '+'
+              return (
+                <div key={`${item.id || idx}`} className="grid grid-cols-12 gap-4 px-6 py-6 items-center rounded-2xl hover:bg-[#222a3d]/50 transition-colors">
+                  <div className="col-span-5 flex items-center gap-5">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isExpense ? 'bg-orange-400/10 text-orange-400' : 'bg-[#4edea3]/10 text-[#4edea3]'}`}>
+                      <span className="material-symbols-outlined">{isExpense ? 'restaurant' : 'work'}</span>
+                    </div>
+                    <div>
+                      <p className="font-bold">{item.description || item.note || t.noData}</p>
+                      <p className="text-xs text-[#c4c5d9]">{item.category || t.noData}</p>
+                    </div>
+                  </div>
+                  <div className="col-span-3 text-sm font-medium text-[#c4c5d9]">{displayDate(item.date)}</div>
+                  <div className={`col-span-2 text-right font-bold ${amountColor}`}>{amountPrefix} {formatMoney(item.amount)}</div>
+                  <div className="col-span-2 flex justify-end">
+                    <span className="px-3 py-1 rounded-full bg-[#4edea3]/10 text-[#4edea3] text-[0.65rem] font-bold uppercase tracking-wider">{idx === 2 ? t.pending : t.completed}</span>
+                  </div>
+                </div>
+              )
+            })}
+
+            {recentActivities.length === 0 && <div className="py-10 text-center text-[#c4c5d9]">{t.emptyTx}</div>}
+          </div>
+        </section>
+
+        <footer className="w-full py-12 flex flex-col md:flex-row justify-between items-center opacity-60">
+          <div className="text-[0.75rem] uppercase tracking-widest text-[#c4c5d9]/60 mb-4 md:mb-0">© 2026 {t.footerBrand}</div>
+          <div className="flex items-center gap-8">
+            <span className="text-[0.75rem] uppercase tracking-widest hover:text-[#b8c3ff] transition-colors">{t.helpCenter}</span>
+            <span className="text-[0.75rem] uppercase tracking-widest hover:text-[#b8c3ff] transition-colors">{t.terms}</span>
+            <span className="text-[0.75rem] uppercase tracking-widest hover:text-[#b8c3ff] transition-colors">{t.privacy}</span>
+          </div>
+        </footer>
       </div>
+    </AppShell>
+  )
+}
+
+function StatCard({ icon, badge, title, value, color, iconBg }) {
+  return (
+    <div className="bg-[#131b2e] rounded-2xl p-6 hover:bg-[#171f33] transition-colors group">
+      <div className="flex justify-between items-start mb-4">
+        <div className={`p-3 rounded-xl ${iconBg} ${color} group-hover:scale-110 transition-transform`}>
+          <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+        </div>
+        <span className={`text-[0.65rem] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${iconBg} ${color}`}>{badge}</span>
+      </div>
+      <p className="text-[0.7rem] font-semibold text-[#c4c5d9] uppercase tracking-widest mb-1">{title}</p>
+      <h4 className="text-xl font-bold">{value}</h4>
     </div>
   )
 }

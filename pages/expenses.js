@@ -1,47 +1,38 @@
-import { useState, useEffect } from 'react'
-import { useSession, signOut } from 'next-auth/react'
-import { useRouter } from 'next/router'
+import { useState, useEffect, useMemo } from 'react'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import Notification, { useNotification } from '../components/Notification'
-import Header from '../components/Header'
-import MobileHeader from '../components/MobileHeader'
-import MobileBottomNav from '../components/MobileBottomNav'
-import MobileSummaryCard from '../components/MobileSummaryCard'
-import MobileTransactionItem from '../components/MobileTransactionItem'
-import MobileFloatingButton from '../components/MobileFloatingButton'
 import SpendingWarningModal from '../components/SpendingWarningModal'
-import { useIsMobile, vibrateOnAction, formatMobileCurrency } from '../lib/mobileHelpers'
+import AppShell from '../components/layout/AppShell'
 
-// Category icons and color helpers (kept small and readable)
 const expenseCategories = {
-  'Ăn uống': '🍽️',
-  'Di chuyển': '🚗',
-  'Giải trí': '🎮',
-  'Mua sắm': '🛍️',
-  'Sức khỏe': '💊',
-  'Học tập': '📚',
-  'Hóa đơn': '📄',
-  'Khác': '📦'
-}
-const incomeCategories = {
-  'Lương': '💰',
-  'Thưởng': '🎁',
-  'Đầu tư': '📈',
-  'Kinh doanh': '💼',
-  'Khác': '💵'
-}
-const categoryIcons = { ...expenseCategories, ...incomeCategories }
-const categoryColors = {
-  'Ăn uống': 'bg-[#D2C1B6]/30 text-[#1B3C53] border-[#D2C1B6]',
-  'Di chuyển': 'bg-[#456882]/20 text-[#1B3C53] border-[#456882]',
-  'Mua sắm': 'bg-[#D2C1B6]/40 text-[#1B3C53] border-[#D2C1B6]',
-  'Sức khỏe': 'bg-[#456882]/30 text-[#1B3C53] border-[#456882]',
+  'Ăn uống': 'restaurant',
+  'Di chuyển': 'commute',
+  'Giải trí': 'sports_esports',
+  'Mua sắm': 'shopping_bag',
+  'Sức khỏe': 'health_and_safety',
+  'Học tập': 'school',
+  'Hóa đơn': 'receipt_long',
+  'Khác': 'category'
 }
 
-export default function Expenses(){
+const incomeCategories = {
+  'Lương': 'payments',
+  'Thưởng': 'redeem',
+  'Đầu tư': 'trending_up',
+  'Kinh doanh': 'business_center',
+  'Khác': 'account_balance_wallet'
+}
+
+const categoryIconMap = { ...expenseCategories, ...incomeCategories }
+
+export default function Expenses() {
   const { data: session, status } = useSession()
-  const router = useRouter()
   const [items, setItems] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null)
+  const [deleteReason, setDeleteReason] = useState('')
+
   const [form, setForm] = useState({
     title: '',
     amount: '',
@@ -50,63 +41,56 @@ export default function Expenses(){
     type: 'expense',
     customCategory: ''
   })
-  
+
+  const [editingId, setEditingId] = useState(null)
   const [filter, setFilter] = useState('all')
   const [typeFilter, setTypeFilter] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
-  const [dateFilter, setDateFilter] = useState('')
-  const [editingId, setEditingId] = useState(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null)
-  const [deleteReason, setDeleteReason] = useState('')
-  // Spending warning modal states
+
   const [showWarningModal, setShowWarningModal] = useState(false)
   const [warningData, setWarningData] = useState(null)
   const [pendingExpense, setPendingExpense] = useState(null)
-  // Initialize dark mode from localStorage (with SSR safety)
-  const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('darkMode')
-      return saved ? JSON.parse(saved) : false
-    }
-    return false
-  })
-  const [lastFetchTime, setLastFetchTime] = useState(0)
+
   const { notification, showNotification, hideNotification } = useNotification()
 
-  // Sync document class and save to localStorage
-  useEffect(() => {
-    localStorage.setItem('darkMode', JSON.stringify(darkMode))
-    if (darkMode) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-  }, [darkMode])
+  const formatAmountInput = (value) => {
+    if (!value) return ''
+    const numeric = String(value).replace(/\D/g, '')
+    return numeric ? Number(numeric).toLocaleString('vi-VN') : ''
+  }
 
-  // Load cached data and fetch fresh data
+  useEffect(() => {
+    document.documentElement.classList.add('dark')
+  }, [])
+
   useEffect(() => {
     if (status === 'loading') return
-    
-    // Load from cache first
     const cached = localStorage.getItem('expenses_cache')
     if (cached) {
       try {
         setItems(JSON.parse(cached))
       } catch (e) {
-        console.error('Error parsing cached data:', e)
+        console.error('Cache parse error:', e)
       }
     }
-    
-    // Then fetch fresh data
     fetchItems()
   }, [status])
 
-  // Set default dateFilter to today on mount
-  useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    setDateFilter(today);
-  }, []);
+  async function fetchItems() {
+    setIsLoading(true)
+    try {
+      const res = await fetch('/api/expenses')
+      const data = await res.json()
+      const list = data.items || []
+      setItems(list)
+      localStorage.setItem('expenses_cache', JSON.stringify(list))
+      localStorage.setItem('data_cache_timestamp', Date.now().toString())
+    } catch (error) {
+      console.error('Error fetching expenses:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   function editItem(item) {
     setEditingId(item.id)
@@ -118,10 +102,7 @@ export default function Expenses(){
       type: item.type || 'expense',
       customCategory: ''
     })
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   function cancelEdit() {
@@ -138,21 +119,18 @@ export default function Expenses(){
 
   async function deleteItem(id) {
     if (!deleteReason.trim()) {
-      alert('Vui lòng nhập lý do xóa!')
+      showNotification('⚠️ Vui lòng nhập lý do xóa!', 'warning')
       return
     }
-    
+
     setIsLoading(true)
     try {
       const res = await fetch(`/api/expenses?id=${id}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          reason: deleteReason.trim()
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: deleteReason.trim() })
       })
+
       if (res.ok) {
         setShowDeleteConfirm(null)
         setDeleteReason('')
@@ -163,100 +141,45 @@ export default function Expenses(){
         showNotification(`Lỗi: ${error.error}`, 'error')
       }
     } catch (error) {
-      console.error('Error deleting expense:', error)
+      console.error('Delete error:', error)
       showNotification('Có lỗi xảy ra khi xóa giao dịch', 'error')
     } finally {
       setIsLoading(false)
     }
   }
 
-  async function migrateData() {
-    if (!confirm('Bạn có chắc muốn di chuyển dữ liệu sang cấu trúc mới? Thao tác này sẽ thêm cột "Type" cho các giao dịch cũ.')) {
-      return
-    }
-    
-    setIsLoading(true)
-    try {
-      const res = await fetch('/api/migrate-data', { 
-        method: 'POST'
-      })
-      const data = await res.json()
-      
-      if(res.ok){
-        alert(`✅ Thành công! Đã di chuyển ${data.rowsMigrated} dòng dữ liệu.\n\nVui lòng kiểm tra lại Google Sheet và reload lại trang.`)
-        await fetchItems()
-      } else {
-        alert(`❌ Lỗi: ${data.error}\n${data.details || ''}`)
-      }
-    } catch (error) {
-      console.error('Error migrating data:', error)
-      alert('❌ Có lỗi xảy ra khi di chuyển dữ liệu')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Fetch latest items from API and cache
-  async function fetchItems(){
-    console.log('🔄 [Expenses Page] Fetching fresh data...')
-    setIsLoading(true)
-    try {
-      const res = await fetch('/api/expenses')
-      const data = await res.json()
-      const itemsList = data.items || []
-      setItems(itemsList)
-      // Cache the result
-      localStorage.setItem('expenses_cache', JSON.stringify(itemsList))
-      localStorage.setItem('data_cache_timestamp', Date.now().toString())
-      setLastFetchTime(Date.now())
-      console.log('✅ [Expenses Page] Data cached successfully')
-    } catch (error) {
-      console.error('Error fetching expenses:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Add or update an expense with spending limit check
-  async function add(){
+  async function add() {
     if (!form.title || !form.amount) {
       showNotification('⚠️ Vui lòng điền đầy đủ thông tin!', 'warning')
       return
     }
+
     if (form.category === 'Khác' && !form.customCategory) {
       showNotification('⚠️ Vui lòng nhập danh mục khác!', 'warning')
       return
     }
-    
+
     const finalCategory = form.category === 'Khác' && form.customCategory ? form.customCategory : form.category
-    
-    // Skip limit check for income or when editing
+
     if (form.type === 'income' || editingId) {
       await saveExpense(finalCategory)
       return
     }
-    
-    // Check spending limit for new expenses only
+
     setIsLoading(true)
     try {
       const checkRes = await fetch('/api/check-spending-limit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          category: finalCategory,
-          amount: Number(form.amount)
-        })
+        body: JSON.stringify({ category: finalCategory, amount: Number(form.amount) })
       })
-      
+
       const checkData = await checkRes.json()
-      
       if (!checkRes.ok) {
         showNotification(`❌ ${checkData.error}`, 'error')
-        setIsLoading(false)
         return
       }
-      
-      // If there are alerts, show warning modal
+
       if (checkData.alerts && checkData.alerts.length > 0) {
         setPendingExpense({
           title: form.title,
@@ -267,30 +190,26 @@ export default function Expenses(){
         })
         setWarningData(checkData)
         setShowWarningModal(true)
-        setIsLoading(false)
         return
       }
-      
-      // No warnings, proceed directly
+
       await saveExpense(finalCategory)
-      
     } catch (error) {
-      console.error('Error checking spending limit:', error)
+      console.error('Limit check error:', error)
       showNotification('⚠️ Không thể kiểm tra hạn mức. Vẫn cho phép lưu.', 'warning')
-      // Allow saving even if check fails
       await saveExpense(finalCategory)
+    } finally {
+      setIsLoading(false)
     }
   }
-  
-  // Actual save function
+
   async function saveExpense(finalCategory, skipNotification = false) {
     setIsLoading(true)
     try {
       if (editingId) {
-        // Update existing
-        const res = await fetch('/api/expenses', { 
-          method: 'PUT', 
-          headers: {'content-type':'application/json'}, 
+        const res = await fetch('/api/expenses', {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
             id: editingId,
             title: form.title,
@@ -298,46 +217,48 @@ export default function Expenses(){
             category: finalCategory,
             date: form.date,
             type: form.type
-          }) 
+          })
         })
-        if(res.ok){
-          setEditingId(null)
-          setForm({title:'',amount:'',category:'Ăn uống',date:new Date().toISOString().split('T')[0], type: 'expense', customCategory: ''})
+
+        if (res.ok) {
+          cancelEdit()
           await fetchItems()
-          if (!skipNotification) {
-            showNotification('✅ Cập nhật thành công!', 'success')
-          }
+          if (!skipNotification) showNotification('✅ Cập nhật thành công!', 'success')
         }
       } else {
-        // Add new
-        const res = await fetch('/api/expenses', { 
-          method: 'POST', 
-          headers: {'content-type':'application/json'}, 
+        const res = await fetch('/api/expenses', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
             title: form.title,
             amount: Number(form.amount),
             category: finalCategory,
             date: form.date,
             type: form.type
-          }) 
+          })
         })
-        if(res.ok){
-          setForm({title:'',amount:'',category:'Ăn uống',date:new Date().toISOString().split('T')[0], type: 'expense', customCategory: ''})
+
+        if (res.ok) {
+          setForm({
+            title: '',
+            amount: '',
+            category: 'Ăn uống',
+            date: new Date().toISOString().split('T')[0],
+            type: 'expense',
+            customCategory: ''
+          })
           await fetchItems()
-          if (!skipNotification) {
-            showNotification('✅ Đã thêm chi tiêu!', 'success')
-          }
+          if (!skipNotification) showNotification('✅ Đã thêm giao dịch!', 'success')
         }
       }
     } catch (error) {
-      console.error('Error saving expense:', error)
+      console.error('Save error:', error)
       showNotification('❌ Có lỗi xảy ra!', 'error')
     } finally {
       setIsLoading(false)
     }
   }
-  
-  // Handle confirm from warning modal
+
   async function handleWarningConfirm() {
     setShowWarningModal(false)
     if (pendingExpense) {
@@ -346,625 +267,307 @@ export default function Expenses(){
       setWarningData(null)
     }
   }
-  
-  // Handle edit from warning modal
+
   function handleWarningEdit() {
     setShowWarningModal(false)
-    // Keep the form as is, user can edit the amount
     showNotification('💡 Hãy điều chỉnh số tiền phù hợp', 'info')
   }
 
-  // Calculate stats
-  const expenses = items.filter(item => item.type === 'expense')
-  const incomes = items.filter(item => item.type === 'income')
-  
+  const expenses = items.filter(i => i.type === 'expense')
+  const incomes = items.filter(i => i.type === 'income')
+
   const totalExpense = expenses.reduce((sum, item) => sum + (item.amount || 0), 0)
   const totalIncome = incomes.reduce((sum, item) => sum + (item.amount || 0), 0)
   const balance = totalIncome - totalExpense
-  
-  const thisMonthExpenses = items.filter(item => {
-    const itemDate = new Date(item.date)
-    const now = new Date()
-    return itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear()
-  })
-  const thisMonthTotal = thisMonthExpenses.reduce((sum, item) => {
-    return sum + (item.type === 'expense' ? -(item.amount || 0) : (item.amount || 0))
-  }, 0)
-  
+
   const categoryBreakdown = expenses.reduce((acc, item) => {
     acc[item.category] = (acc[item.category] || 0) + (item.amount || 0)
     return acc
   }, {})
-  const topCategory = Object.entries(categoryBreakdown).sort((a,b) => b[1] - a[1])[0]
+  const topCategory = Object.entries(categoryBreakdown).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Chưa có dữ liệu'
 
-  // Filter items
-  const filteredItems = items
-    .filter(item => typeFilter === 'all' || item.type === typeFilter)
-    .filter(item => filter === 'all' || item.category === filter)
-    .filter(item => item.title?.toLowerCase().includes(searchTerm.toLowerCase()))
-    .filter(item => {
-      if (!dateFilter) return true // Nếu không có filter ngày, hiển thị tất cả
-      const itemDate = item.date?.split('T')[0] // Lấy phần ngày (YYYY-MM-DD)
-      return itemDate === dateFilter
-    })
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
+  const filteredItems = useMemo(
+    () => items
+      .filter(item => typeFilter === 'all' || item.type === typeFilter)
+      .filter(item => filter === 'all' || item.category === filter)
+      .filter(item => item.title?.toLowerCase().includes(searchTerm.toLowerCase()))
+      .sort((a, b) => new Date(b.date) - new Date(a.date)),
+    [items, typeFilter, filter, searchTerm]
+  )
 
-  // Keep backward-compatible name used in JSX (was referenced but not defined)
-  const filteredAndSortedItems = filteredItems
-
-  const bgClass = darkMode 
-    ? 'bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900' 
-    : 'bg-gradient-to-br from-[#D2C1B6]/20 via-white to-[#456882]/10'
-  const cardBgClass = darkMode 
-    ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 shadow-2xl' 
-    : 'bg-white'
-  const textClass = darkMode ? 'text-gray-100' : 'text-gray-900'
+  const incomePercent = totalIncome > 0 ? Math.min(100, Math.round((totalIncome / (totalIncome + totalExpense || 1)) * 100)) : 0
+  const expensePercent = totalExpense > 0 ? Math.min(100, Math.round((totalExpense / (totalIncome + totalExpense || 1)) * 100)) : 0
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Đang tải...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-[#0b1326] text-[#dae2fd]">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#b8c3ff]" />
+      </div>
+    )
+  }
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0b1326] text-[#dae2fd]">
+        <Link href="/auth" className="px-6 py-3 rounded-xl bg-[#2e5bff] font-semibold">Đăng nhập</Link>
       </div>
     )
   }
 
   return (
-    <div className={`min-h-screen ${bgClass} transition-all duration-500`}>
-      {/* Desktop Header */}
-      <div className="hidden lg:block">
-        <Header 
-          title="Quản lý Chi tiêu"
-          subtitle="Theo dõi và quản lý chi tiêu"
-          icon="💰"
-          darkMode={darkMode}
-          setDarkMode={setDarkMode}
-          showDarkModeToggle={true}
-        />
-      </div>
-
-      {/* Mobile Header */}
-      <MobileHeader
-        title="Chi tiêu"
-        icon="💰"
-        darkMode={darkMode}
-        setDarkMode={setDarkMode}
-      />
-
-      <div className="max-w-7xl mx-auto px-0 sm:px-4 lg:px-8 py-4 lg:py-8 pb-20 lg:pb-8">
-        {/* Cache Info - Hidden for cleaner UI */}
-
-        {/* Stats Cards - Desktop */}
-        <div className="hidden lg:grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 px-4 lg:px-0">
-          <div className={`rounded-xl shadow-lg p-4 text-white transform hover:scale-105 transition-all duration-300 ${
-            darkMode 
-              ? 'bg-gradient-to-br from-rose-600 to-pink-700' 
-              : 'bg-gradient-to-br from-red-500 to-red-600'
-          }`}>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-medium opacity-90">Tổng chi tiêu</p>
-              <span className="text-2xl">💸</span>
-            </div>
-            <p className="text-2xl font-bold mb-0.5">{totalExpense.toLocaleString('vi-VN')}đ</p>
-            <p className="text-xs opacity-80">{expenses.length} giao dịch</p>
-          </div>
-
-          <div className={`rounded-xl shadow-lg p-4 text-white transform hover:scale-105 transition-all duration-300 ${
-            darkMode 
-              ? 'bg-gradient-to-br from-emerald-600 to-teal-700' 
-              : 'bg-gradient-to-br from-green-500 to-green-600'
-          }`}>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-medium opacity-90">Tổng thu nhập</p>
-              <span className="text-2xl">💰</span>
-            </div>
-            <p className="text-2xl font-bold mb-0.5">{totalIncome.toLocaleString('vi-VN')}đ</p>
-            <p className="text-xs opacity-80">{incomes.length} giao dịch</p>
-          </div>
-
-          <div className={`rounded-xl shadow-lg p-4 text-white transform hover:scale-105 transition-all duration-300 ${
-            darkMode 
-              ? balance >= 0 
-                ? 'bg-gradient-to-br from-blue-600 to-cyan-700' 
-                : 'bg-gradient-to-br from-orange-500 to-amber-600'
-              : balance >= 0 
-                ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
-                : 'bg-gradient-to-br from-orange-500 to-orange-600'
-          }`}>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-medium opacity-90">Số dư</p>
-              <span className="text-2xl">{balance >= 0 ? '📊' : '⚠️'}</span>
-            </div>
-            <p className="text-2xl font-bold mb-0.5">{balance.toLocaleString('vi-VN')}đ</p>
-            <p className="text-xs opacity-80">{balance >= 0 ? 'Dương' : 'Âm'}</p>
-          </div>
-
-          <div className={`rounded-xl shadow-lg p-4 text-white transform hover:scale-105 transition-all duration-300 ${
-            darkMode 
-              ? 'bg-gradient-to-br from-purple-600 to-indigo-700' 
-              : 'bg-gradient-to-br from-purple-500 to-purple-600'
-          }`}>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-medium opacity-90">Danh mục top</p>
-              <span className="text-2xl">{categoryIcons[topCategory] || '📦'}</span>
-            </div>
-            <p className="text-2xl font-bold truncate mb-0.5">{topCategory || 'Chưa có'}</p>
-            <p className="text-xs opacity-80">
-              {items.filter(i => i.category === topCategory).length} giao dịch
-            </p>
-          </div>
+    <>
+    <AppShell
+      title="Quản lý Tài chính"
+      activeMenu="expenses"
+      primaryActionLabel="Thêm Giao Dịch"
+      onPrimaryAction={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      session={session}
+      searchTerm={searchTerm}
+      setSearchTerm={setSearchTerm}
+      searchPlaceholder="Tìm kiếm giao dịch..."
+      headerTabs={(
+        <>
+          <button className="text-[#b8c3ff] border-b-2 border-[#b8c3ff] pb-1 text-sm font-medium">Cá nhân</button>
+          <button className="text-[#dae2fd]/60 hover:text-[#dae2fd] text-sm font-medium">Doanh nghiệp</button>
+          <button className="text-[#dae2fd]/60 hover:text-[#dae2fd] text-sm font-medium">Đầu tư</button>
+        </>
+      )}
+      rightActions={(
+        <div className="flex items-center gap-2">
+          <button className="p-2 text-[#dae2fd]/60 hover:bg-[#2d3449]/50 rounded-full"><span className="material-symbols-outlined">notifications</span></button>
+          <button className="p-2 text-[#dae2fd]/60 hover:bg-[#2d3449]/50 rounded-full"><span className="material-symbols-outlined">settings</span></button>
         </div>
-
-        {/* Stats Cards - Mobile (2x2 grid) - With formatMobileCurrency */}
-        <div className="lg:hidden grid grid-cols-2 gap-3 mb-6 px-4">
-          <MobileSummaryCard
-            icon="💸"
-            label="Chi tiêu"
-            value={`${formatMobileCurrency(totalExpense)}đ`}
-            subtitle={`${expenses.length} giao dịch`}
-            gradient={darkMode 
-              ? 'bg-gradient-to-br from-rose-600 to-pink-700' 
-              : 'bg-gradient-to-br from-red-500 to-red-600'}
-          />
-          
-          <MobileSummaryCard
-            icon="💰"
-            label="Thu nhập"
-            value={`${formatMobileCurrency(totalIncome)}đ`}
-            subtitle={`${incomes.length} giao dịch`}
-            gradient={darkMode 
-              ? 'bg-gradient-to-br from-emerald-600 to-teal-700' 
-              : 'bg-gradient-to-br from-green-500 to-green-600'}
-          />
-          
-          <MobileSummaryCard
-            icon={balance >= 0 ? '📊' : '⚠️'}
-            label="Số dư"
-            value={`${formatMobileCurrency(balance)}đ`}
-            subtitle={balance >= 0 ? 'Dương' : 'Âm'}
-            gradient={darkMode 
-              ? balance >= 0 
-                ? 'bg-gradient-to-br from-blue-600 to-cyan-700' 
-                : 'bg-gradient-to-br from-orange-500 to-amber-600'
-              : balance >= 0 
-                ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
-                : 'bg-gradient-to-br from-orange-500 to-orange-600'}
-          />
-          
-          <MobileSummaryCard
-            icon={categoryIcons[topCategory] || '📦'}
-            label="Top"
-            value={topCategory || 'Chưa có'}
-            subtitle={`${items.filter(i => i.category === topCategory).length} giao dịch`}
-            gradient={darkMode 
-              ? 'bg-gradient-to-br from-purple-600 to-indigo-700' 
-              : 'bg-gradient-to-br from-purple-500 to-purple-600'}
-          />
-        </div>
-
-        {/* Main Content */}
-        <div className="grid lg:grid-cols-3 gap-8 px-4 lg:px-0">
-          {/* Form Add Expense/Income */}
-          <div className="lg:col-span-1">
-            <div className={`rounded-2xl shadow-2xl p-6 sticky top-24 ${
-              darkMode 
-                ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 backdrop-blur-sm' 
-                : 'bg-white border-2 border-[#D2C1B6]/30'
-            }`}>
-              <div className="flex items-center space-x-2 mb-6">
-                <span className="text-2xl">➕</span>
-                <h3 className={`text-xl font-bold ${textClass}`}>
-                  {editingId ? 'Sửa giao dịch' : 'Thêm giao dịch mới'}
-                </h3>
+      )}
+    >
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+          <SummaryCard icon="account_balance" label="Số dư khả dụng" value={balance} valueColor="text-[#dae2fd]" trend="+2.4% tháng này" trendColor="text-[#4edea3]" />
+          <SummaryCard icon="arrow_downward" label="Tổng thu nhập" value={totalIncome} valueColor="text-[#4edea3]" progress={incomePercent} progressColor="bg-[#4edea3]" />
+          <SummaryCard icon="arrow_upward" label="Tổng chi tiêu" value={totalExpense} valueColor="text-[#ffb3b6]" progress={expensePercent} progressColor="bg-[#ffb3b6]" />
+          <div className="p-6 rounded-3xl bg-[#171f33] shadow-xl">
+            <div className="flex justify-between items-start mb-4">
+              <div className="p-3 rounded-2xl bg-[#a388ff]/10 text-[#a388ff]">
+                <span className="material-symbols-outlined">category</span>
               </div>
-              
-              <div className="space-y-4">
-                {/* Type Selection - Radio buttons */}
-                <div>
-                  <label className={`block text-sm font-medium mb-3 ${textClass}`}>
-                    Loại giao dịch <span className="text-red-500">*</span>
-                  </label>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => setForm(f => ({...f, type: 'expense', category: 'Ăn uống'}))}
-                      className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
-                        form.type === 'expense'
-                          ? darkMode
-                            ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-lg shadow-rose-500/30'
-                            : 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg'
-                          : darkMode
-                            ? 'bg-slate-700 text-gray-300 hover:bg-slate-600 border border-slate-600'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
-                      }`}
-                    >
-                      <span>💸</span>
-                      <span>Khoản chi</span>
-                    </button>
-                    <button
-                      onClick={() => setForm(f => ({...f, type: 'income', category: 'Lương'}))}
-                      className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
-                        form.type === 'income'
-                          ? darkMode
-                            ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/30'
-                            : 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg'
-                          : darkMode
-                            ? 'bg-slate-700 text-gray-300 hover:bg-slate-600 border border-slate-600'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
-                      }`}
-                    >
-                      <span>💰</span>
-                      <span>Khoản thu</span>
-                    </button>
-                  </div>
-                </div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#8e90a2]">Hạng mục chính</span>
+            </div>
+            <h3 className="text-2xl font-bold">{topCategory}</h3>
+            <p className="text-sm text-[#8e90a2] mt-1">{Math.round((categoryBreakdown[topCategory] || 0) * 100 / (totalExpense || 1))}% chi tiêu</p>
+            <div className="mt-4 flex -space-x-2">
+              <div className="h-8 w-8 rounded-full border-2 border-[#0b1326] bg-[#2d3449] flex items-center justify-center">
+                <span className="material-symbols-outlined text-xs">restaurant</span>
+              </div>
+              <div className="h-8 w-8 rounded-full border-2 border-[#0b1326] bg-[#2d3449] flex items-center justify-center">
+                <span className="material-symbols-outlined text-xs">shopping_bag</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-8">
+            <div className="bg-[rgba(45,52,73,0.6)] backdrop-blur-[20px] rounded-[2rem] p-8 shadow-2xl border border-[#434656]/20">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${textClass}`}>
-                    Tên giao dịch <span className="text-red-500">*</span>
-                  </label>
-                  <input 
-                    className={`w-full px-4 py-3 border-2 rounded-lg transition-all ${
-                      darkMode 
-                        ? 'bg-slate-700 border-slate-600 text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500' 
-                        : 'bg-white border-[#D2C1B6] focus:ring-2 focus:ring-[#234C6A] focus:border-[#234C6A]'
-                    }`}
-                    placeholder="VD: Cà phê sáng" 
-                    value={form.title} 
-                    onChange={e=>setForm(f=>({...f,title:e.target.value}))} 
-                  />
+                  <h2 className="text-xl font-bold">Lịch sử giao dịch</h2>
+                  <p className="text-sm text-[#8e90a2]">Dưới đây là các giao dịch gần nhất của bạn</p>
                 </div>
-
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${textClass}`}>
-                    Số tiền (VNĐ) <span className="text-red-500">*</span>
-                  </label>
-                  <input 
-                    type="number"
-                    className={`w-full px-4 py-3 border-2 rounded-lg transition-all ${
-                      darkMode 
-                        ? 'bg-slate-700 border-slate-600 text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500' 
-                        : 'bg-white border-[#D2C1B6] focus:ring-2 focus:ring-[#234C6A] focus:border-[#234C6A]'
-                    }`}
-                    placeholder="VD: 35000" 
-                    value={form.amount} 
-                    onChange={e=>setForm(f=>({...f,amount:e.target.value}))} 
-                  />
-                </div>
-
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${textClass}`}>
-                    Danh mục
-                  </label>
-                  <select 
-                    className={`w-full px-4 py-3 border-2 rounded-lg transition-all ${
-                      darkMode 
-                        ? 'bg-slate-700 border-slate-600 text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500' 
-                        : 'bg-white border-[#D2C1B6] focus:ring-2 focus:ring-[#234C6A] focus:border-[#234C6A]'
-                    }`}
-                    value={form.category} 
-                    onChange={e=>setForm(f=>({...f,category:e.target.value, customCategory: ''}))}
+                <div className="flex items-center gap-2">
+                  <select
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value)}
+                    className="px-4 py-2 bg-[#222a3d] rounded-xl text-xs font-semibold border-none"
                   >
-                    {form.type === 'expense' ? (
-                      <>
-                        {Object.keys(expenseCategories).map(cat => (
-                          <option key={cat} value={cat}>{expenseCategories[cat]} {cat}</option>
-                        ))}
-                      </>
-                    ) : (
-                      <>
-                        {Object.keys(incomeCategories).map(cat => (
-                          <option key={cat} value={cat}>{incomeCategories[cat]} {cat}</option>
-                        ))}
-                      </>
-                    )}
+                    <option value="all">Tất cả loại</option>
+                    <option value="expense">Khoản chi</option>
+                    <option value="income">Khoản thu</option>
+                  </select>
+                  <select
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    className="px-4 py-2 bg-[#222a3d] rounded-xl text-xs font-semibold border-none"
+                  >
+                    <option value="all">Tất cả danh mục</option>
+                    {[...new Set(items.map(item => item.category))].map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
                   </select>
                 </div>
-
-                {form.category === 'Khác' && (
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 ${textClass}`}>
-                      Danh mục khác <span className="text-red-500">*</span>
-                    </label>
-                    <input 
-                      className={`w-full px-4 py-3 border-2 rounded-lg transition-all ${
-                        darkMode 
-                          ? 'bg-slate-700 border-slate-600 text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500' 
-                          : 'bg-white border-[#D2C1B6] focus:ring-2 focus:ring-[#234C6A] focus:border-[#234C6A]'
-                      }`}
-                      placeholder="VD: Quà tặng" 
-                      value={form.customCategory} 
-                      onChange={e=>setForm(f=>({...f,customCategory:e.target.value}))} 
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${textClass}`}>
-                    Ngày giao dịch
-                  </label>
-                  <input 
-                    type="date" 
-                    className={`w-full px-4 py-3 border-2 rounded-lg transition-all ${
-                      darkMode 
-                        ? 'bg-slate-700 border-slate-600 text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500' 
-                        : 'bg-white border-[#D2C1B6] focus:ring-2 focus:ring-[#234C6A] focus:border-[#234C6A]'
-                    }`}
-                    value={form.date} 
-                    onChange={e=>setForm(f=>({...f,date:e.target.value}))} 
-                  />
-                </div>
-
-                {editingId ? (
-                  <div className="flex gap-3">
-                    <button 
-                      className={`flex-1 py-3 font-semibold rounded-lg shadow-lg transition-all transform hover:scale-105 ${
-                        darkMode 
-                          ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-purple-500/30' 
-                          : 'bg-gradient-to-r from-[#234C6A] to-[#1B3C53] hover:from-[#1B3C53] hover:to-[#234C6A] text-white'
-                      }`}
-                      onClick={add}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? '⏳ Đang lưu...' : '💾 Lưu thay đổi'}
-                    </button>
-                    <button 
-                      className={`px-4 py-3 font-semibold rounded-lg transition-all ${
-                        darkMode 
-                          ? 'bg-slate-700 hover:bg-slate-600 text-gray-300 border border-slate-600' 
-                          : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                      }`}
-                      onClick={cancelEdit}
-                    >
-                      ❌
-                    </button>
-                  </div>
-                ) : (
-                  <button 
-                    className={`w-full py-3 font-semibold rounded-lg shadow-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
-                      darkMode 
-                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-purple-500/30' 
-                        : 'bg-gradient-to-r from-[#234C6A] to-[#1B3C53] hover:from-[#1B3C53] hover:to-[#234C6A] text-white'
-                    }`}
-                    onClick={add}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? '⏳ Đang thêm...' : `➕ Thêm ${form.type === 'expense' ? 'chi tiêu' : 'thu nhập'}`}
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Expense List */}
-          <div className="lg:col-span-2">
-            <div className={`rounded-2xl shadow-2xl p-6 ${
-              darkMode 
-                ? 'bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 backdrop-blur-sm' 
-                : 'bg-white border-2 border-[#D2C1B6]/30'
-            }`}>
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-2">
-                  <span className="text-2xl">📋</span>
-                  <h3 className={`text-xl font-bold ${textClass}`}>Lịch sử giao dịch</h3>
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    darkMode 
-                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white' 
-                      : 'bg-[#234C6A] text-white'
-                  }`}>
-                    {filteredAndSortedItems.length}
-                  </span>
-                </div>
               </div>
 
-              {/* Filters - Compact */}
-              <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <select 
-                  value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
-                  className={`px-3 py-2 border-2 rounded-lg text-sm transition-all ${
-                    darkMode 
-                      ? 'bg-slate-700 border-slate-600 text-white focus:ring-2 focus:ring-purple-500' 
-                      : 'bg-white border-[#D2C1B6] focus:ring-2 focus:ring-[#234C6A]'
-                  }`}
-                >
-                  <option value="all">📊 Tất cả loại</option>
-                  <option value="expense">💸 Chỉ chi tiêu</option>
-                  <option value="income">💰 Chỉ thu nhập</option>
-                </select>
-
-                <select 
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
-                  className={`px-3 py-2 border-2 rounded-lg text-sm transition-all ${
-                    darkMode 
-                      ? 'bg-slate-700 border-slate-600 text-white focus:ring-2 focus:ring-purple-500' 
-                      : 'bg-white border-[#D2C1B6] focus:ring-2 focus:ring-[#234C6A]'
-                  }`}
-                >
-                  <option value="all">📂 Tất cả danh mục</option>
-                  {[...new Set(items.map(item => item.category))].map(cat => (
-                    <option key={cat} value={cat}>{categoryIcons[cat] || '📦'} {cat}</option>
-                  ))}
-                </select>
-
-                <input 
-                  type="date"
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className={`px-3 py-2 border-2 rounded-lg text-sm transition-all ${
-                    darkMode 
-                      ? 'bg-slate-700 border-slate-600 text-white focus:ring-2 focus:ring-purple-500' 
-                      : 'bg-white border-[#D2C1B6] focus:ring-2 focus:ring-[#234C6A]'
-                  }`}
-                />
-              </div>
-
-              {/* Search */}
-              <div className="mb-4">
-                <input 
-                  type="text"
-                  placeholder="🔍 Tìm kiếm giao dịch..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full px-4 py-2 border-2 rounded-lg text-sm transition-all ${
-                    darkMode 
-                      ? 'bg-slate-700 border-slate-600 text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500' 
-                      : 'bg-white border-[#D2C1B6] placeholder-gray-400 focus:ring-2 focus:ring-[#234C6A]'
-                  }`}
-                />
-              </div>
-
-              {/* Items List - Scrollable */}
-              <div className="space-y-3 max-h-[600px] overflow-y-auto">
+              <div className="space-y-4">
                 {isLoading ? (
-                  <div className="text-center py-12">
-                    <div className={`animate-spin rounded-full h-12 w-12 border-b-2 mx-auto ${
-                      darkMode ? 'border-purple-400' : 'border-[#234C6A]'
-                    }`}></div>
-                    <p className={`mt-4 ${darkMode ? 'text-gray-400' : 'text-[#456882]'}`}>Đang tải...</p>
-                  </div>
-                ) : filteredAndSortedItems.length === 0 ? (
-                  <div className="text-center py-12">
-                    <span className="text-6xl mb-4 block">📭</span>
-                    <p className={`text-lg ${darkMode ? 'text-gray-300' : 'text-[#456882]'}`}>Chưa có giao dịch nào</p>
-                    <p className={`text-sm mt-2 ${darkMode ? 'text-gray-500' : 'text-[#D2C1B6]'}`}>Thêm giao dịch đầu tiên của bạn!</p>
-                  </div>
+                  <div className="text-center py-8 text-[#8e90a2]">Đang tải dữ liệu...</div>
+                ) : filteredItems.length === 0 ? (
+                  <div className="text-center py-8 text-[#8e90a2]">Chưa có giao dịch nào phù hợp.</div>
                 ) : (
-                  filteredAndSortedItems.map(item => (
-                    <div 
-                      key={item.id}
-                      className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 transition-colors border ${
-                        darkMode
-                          ? item.type === 'income' ? 'bg-emerald-900/10 border-emerald-700/20' : 'bg-rose-900/10 border-rose-700/20'
-                          : item.type === 'income' ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <div className="text-base flex-shrink-0">{categoryIcons[item.category] || '📦'}</div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <div className={`text-sm font-medium truncate ${textClass}`}>{item.title}</div>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                              darkMode ? 'bg-slate-700 text-gray-200' : 'bg-white/60 text-gray-700 border'
-                            }`}>{item.category}</span>
+                  filteredItems.map(item => {
+                    const isIncome = item.type === 'income'
+                    return (
+                      <div key={item.id} className="group relative flex items-center justify-between p-4 rounded-2xl hover:bg-[#222a3d] transition-all">
+                        <div className="flex items-center gap-4">
+                          <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${isIncome ? 'bg-[#4edea3]/10 text-[#4edea3]' : 'bg-[#ffb3b6]/10 text-[#ffb3b6]'}`}>
+                            <span className="material-symbols-outlined">{categoryIconMap[item.category] || 'receipt_long'}</span>
                           </div>
-                          <div className="text-xs text-gray-400 truncate">{new Date(item.date).toLocaleDateString('vi-VN')}</div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <div className={`font-semibold text-sm ${item.type === 'income' ? (darkMode ? 'text-emerald-400' : 'text-green-700') : (darkMode ? 'text-rose-400' : 'text-red-700')}`}>
-                          {item.type === 'income' ? '+' : '-'}{item.amount?.toLocaleString('vi-VN')}đ
+                          <div>
+                            <p className="font-bold group-hover:text-[#b8c3ff] transition-colors">{item.title}</p>
+                            <p className="text-xs text-[#8e90a2]">{new Date(item.date).toLocaleDateString('vi-VN')} • {item.category}</p>
+                          </div>
                         </div>
 
-                        <div className="flex items-center gap-1">
-                          <button
-                            className={`text-xs px-2 py-1 rounded border ${darkMode ? 'bg-slate-700 text-gray-200 border-slate-600' : 'bg-white text-gray-700 border-gray-200'}`}
-                            onClick={() => editItem(item)}
-                          >
-                            ✏️
+                        <div className="text-right flex items-center gap-3">
+                          <div>
+                            <p className={`font-bold ${isIncome ? 'text-[#4edea3]' : 'text-[#ffb3b6]'}`}>
+                              {isIncome ? '+' : '-'} {Number(item.amount || 0).toLocaleString('vi-VN')}đ
+                            </p>
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${item.status === 'pending' ? 'bg-[#8e90a2]/10 text-[#8e90a2]' : 'bg-[#4edea3]/10 text-[#4edea3]'}`}>
+                              {item.status === 'pending' ? 'Đang chờ' : 'Hoàn tất'}
+                            </span>
+                          </div>
+
+                          <button onClick={() => editItem(item)} className="p-2 rounded-lg hover:bg-[#2d3449]">
+                            <span className="material-symbols-outlined text-sm">edit</span>
                           </button>
-                          <button
-                            className={`text-xs px-2 py-1 rounded border ${darkMode ? 'bg-rose-700 text-white border-rose-600' : 'bg-red-500 text-white'}`}
-                            onClick={() => setShowDeleteConfirm(item.id)}
-                          >
-                            🗑️
+                          <button onClick={() => setShowDeleteConfirm(item.id)} className="p-2 rounded-lg hover:bg-[#2d3449] text-[#ffb3b6]">
+                            <span className="material-symbols-outlined text-sm">delete</span>
                           </button>
                         </div>
-                      </div>
 
-                      {/* Delete Confirmation */}
-                      {showDeleteConfirm === item.id && (
-                        <div className={`absolute z-20 right-0 top-full mt-1 p-3 rounded-lg shadow-lg border-2 min-w-[280px] ${darkMode ? 'bg-slate-900 text-gray-200 border-slate-700' : 'bg-white border-gray-200'}`}>
-                          <p className="text-sm font-medium mb-3">⚠️ Xác nhận xóa giao dịch</p>
-                          <div className="mb-3">
-                            <label className="block text-xs font-medium mb-1">
-                              Lý do xóa <span className="text-red-500">*</span>
-                            </label>
+                        {showDeleteConfirm === item.id && (
+                          <div className="absolute z-20 right-2 top-[calc(100%+8px)] p-3 rounded-lg shadow-lg border border-[#434656] min-w-[280px] bg-[#171f33]">
+                            <p className="text-sm font-medium mb-3">Xác nhận xóa giao dịch</p>
                             <textarea
                               value={deleteReason}
                               onChange={(e) => setDeleteReason(e.target.value)}
-                              placeholder="VD: Nhập sai, trùng lặp, hủy giao dịch..."
-                              className={`w-full px-2 py-1 text-xs border rounded resize-none ${
-                                darkMode 
-                                  ? 'bg-slate-800 border-slate-600 text-gray-200 placeholder-gray-400' 
-                                  : 'bg-white border-gray-300 placeholder-gray-500'
-                              }`}
+                              placeholder="Nhập lý do xóa..."
+                              className="w-full px-2 py-1 text-xs border border-[#434656] rounded resize-none bg-[#060e20]"
                               rows={2}
                               maxLength={200}
                             />
-                            <div className="text-xs text-gray-400 mt-1">{deleteReason.length}/200</div>
+                            <div className="flex gap-2 mt-2">
+                              <button onClick={() => deleteItem(item.id)} disabled={!deleteReason.trim() || isLoading} className="flex-1 px-3 py-1.5 text-xs rounded bg-[#ffb3b6] text-[#690005] font-semibold disabled:opacity-50">Xóa</button>
+                              <button onClick={() => { setShowDeleteConfirm(null); setDeleteReason('') }} className="flex-1 px-3 py-1.5 text-xs rounded border border-[#434656]">Hủy</button>
+                            </div>
                           </div>
-                          <div className="flex gap-2">
-                            <button 
-                              className="flex-1 px-3 py-1.5 text-xs rounded bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
-                              onClick={() => deleteItem(item.id)}
-                              disabled={!deleteReason.trim() || isLoading}
-                            >
-                              {isLoading ? '⏳ Xóa...' : 'Xóa'}
-                            </button>
-                            <button 
-                              className="flex-1 px-3 py-1.5 text-xs rounded border hover:bg-gray-50"
-                              onClick={() => {
-                                setShowDeleteConfirm(null)
-                                setDeleteReason('')
-                              }}
-                            >
-                              Hủy
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))
+                        )}
+                      </div>
+                    )
+                  })
                 )}
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Footer - Compact (Hidden on mobile) */}
-      <footer className={`hidden lg:block ${darkMode ? 'bg-slate-900 border-t border-slate-700' : 'bg-[#1B3C53] border-t border-[#234C6A]'}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="text-center">
-            <p className="text-[#D2C1B6] text-sm">
-              💰 Quản lý Chi tiêu © 2025 • Made with ❤️
-            </p>
+          <div className="lg:col-span-4">
+            <div className="bg-[rgba(45,52,73,0.6)] backdrop-blur-[20px] rounded-[2rem] p-8 shadow-2xl border border-[#434656]/20 sticky top-24">
+              <h2 className="text-xl font-bold mb-6">{editingId ? 'Cập nhật giao dịch' : 'Thêm giao dịch mới'}</h2>
+
+              <div className="space-y-5">
+                <div className="flex p-1 bg-[#060e20] rounded-2xl">
+                  <button
+                    type="button"
+                    onClick={() => setForm(prev => ({ ...prev, type: 'expense', category: 'Ăn uống' }))}
+                    className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${form.type === 'expense' ? 'bg-[#222a3d] text-[#dae2fd]' : 'text-[#8e90a2]'}`}
+                  >
+                    KHOẢN CHI
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm(prev => ({ ...prev, type: 'income', category: 'Lương' }))}
+                    className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${form.type === 'income' ? 'bg-[#222a3d] text-[#dae2fd]' : 'text-[#8e90a2]'}`}
+                  >
+                    KHOẢN THU
+                  </button>
+                </div>
+
+                <Field label="Tên giao dịch">
+                  <input
+                    className="w-full bg-[#060e20] border-none rounded-xl py-3 px-4 text-sm focus:ring-1 focus:ring-[#b8c3ff]/40"
+                    placeholder="VD: Mua sắm quần áo"
+                    value={form.title}
+                    onChange={(e) => setForm(prev => ({ ...prev, title: e.target.value }))}
+                    type="text"
+                  />
+                </Field>
+
+                <Field label="Số tiền (VND)">
+                  <input
+                    className="w-full bg-[#060e20] border-none rounded-xl py-3 px-4 text-xl font-bold focus:ring-1 focus:ring-[#b8c3ff]/40"
+                    placeholder="0"
+                    value={formatAmountInput(form.amount)}
+                    onChange={(e) => {
+                      const rawValue = e.target.value.replace(/\D/g, '')
+                      setForm(prev => ({ ...prev, amount: rawValue }))
+                    }}
+                    inputMode="numeric"
+                    type="text"
+                  />
+                </Field>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Hạng mục">
+                    <select
+                      className="w-full bg-[#060e20] border-none rounded-xl py-3 px-4 text-sm focus:ring-1 focus:ring-[#b8c3ff]/40"
+                      value={form.category}
+                      onChange={(e) => setForm(prev => ({ ...prev, category: e.target.value, customCategory: '' }))}
+                    >
+                      {(form.type === 'expense' ? Object.keys(expenseCategories) : Object.keys(incomeCategories)).map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </Field>
+
+                  <Field label="Ngày">
+                    <input
+                      className="w-full bg-[#060e20] border-none rounded-xl py-3 px-4 text-sm focus:ring-1 focus:ring-[#b8c3ff]/40"
+                      value={form.date}
+                      onChange={(e) => setForm(prev => ({ ...prev, date: e.target.value }))}
+                      type="date"
+                    />
+                  </Field>
+                </div>
+
+                {form.category === 'Khác' && (
+                  <Field label="Danh mục khác">
+                    <input
+                      className="w-full bg-[#060e20] border-none rounded-xl py-3 px-4 text-sm focus:ring-1 focus:ring-[#b8c3ff]/40"
+                      placeholder="VD: Quà tặng"
+                      value={form.customCategory}
+                      onChange={(e) => setForm(prev => ({ ...prev, customCategory: e.target.value }))}
+                      type="text"
+                    />
+                  </Field>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={add}
+                    disabled={isLoading}
+                    className="flex-1 bg-gradient-to-br from-[#b8c3ff] to-[#2e5bff] text-[#001356] py-4 rounded-2xl font-bold text-sm tracking-wider uppercase shadow-xl shadow-[#2e5bff]/20 disabled:opacity-60"
+                    type="button"
+                  >
+                    {isLoading ? 'Đang xử lý...' : editingId ? 'Lưu thay đổi' : 'Xác nhận giao dịch'}
+                  </button>
+                  {editingId && (
+                    <button onClick={cancelEdit} className="px-4 rounded-2xl border border-[#434656]" type="button">
+                      Hủy
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </footer>
+    </AppShell>
 
-      {/* Mobile Floating Action Button */}
-      <MobileFloatingButton
-        icon="➕"
-        label={editingId ? "Hủy" : "Thêm mới"}
-        onClick={() => {
-          vibrateOnAction()
-          if (editingId) {
-            setEditingId(null)
-            setForm({
-              title: '',
-              amount: '',
-              category: 'Ăn uống',
-              date: new Date().toISOString().split('T')[0],
-              type: 'expense',
-              customCategory: ''
-            })
-          } else {
-            // Scroll to form
-            window.scrollTo({ top: 0, behavior: 'smooth' })
-          }
-        }}
-        color={editingId ? "red" : "blue"}
-      />
+      {notification && (
+        <Notification
+          message={notification.message}
+          type={notification.type}
+          onClose={hideNotification}
+          duration={notification.duration}
+        />
+      )}
 
-      {/* Mobile Bottom Navigation */}
-      <MobileBottomNav />
-      
-      {/* Spending Warning Modal */}
       {showWarningModal && warningData && (
         <SpendingWarningModal
           isOpen={showWarningModal}
@@ -983,6 +586,44 @@ export default function Expenses(){
           onEdit={handleWarningEdit}
         />
       )}
+    </>
+  )
+}
+
+function SummaryCard({ icon, label, value, valueColor, trend, trendColor, progress, progressColor }) {
+  return (
+    <div className="relative overflow-hidden p-6 rounded-3xl bg-[#171f33] shadow-xl">
+      <div className="absolute top-0 right-0 w-32 h-32 bg-[#b8c3ff]/10 rounded-full -mr-16 -mt-16 blur-3xl" />
+      <div className="flex justify-between items-start mb-4">
+        <div className="p-3 rounded-2xl bg-[#b8c3ff]/20 text-[#b8c3ff]">
+          <span className="material-symbols-outlined">{icon}</span>
+        </div>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-[#8e90a2]">{label}</span>
+      </div>
+      <h3 className={`text-3xl font-bold ${valueColor}`}>{Number(value || 0).toLocaleString('vi-VN')}</h3>
+      <p className="text-sm text-[#8e90a2] mt-1">VND</p>
+
+      {typeof progress === 'number' && (
+        <div className="mt-4 h-1.5 w-full bg-[#2d3449] rounded-full overflow-hidden">
+          <div className={`h-full rounded-full ${progressColor}`} style={{ width: `${progress}%` }} />
+        </div>
+      )}
+
+      {trend && (
+        <div className={`mt-4 flex items-center gap-2 text-xs font-semibold ${trendColor}`}>
+          <span className="material-symbols-outlined text-sm">trending_up</span>
+          <span>{trend}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Field({ label, children }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-[10px] font-bold uppercase tracking-widest text-[#8e90a2] ml-1">{label}</label>
+      {children}
     </div>
   )
 }
