@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/router'
-import Link from 'next/link'
 import Notification, { useNotification } from '../components/Notification'
 import AppShell from '../components/layout/AppShell'
 
@@ -38,6 +37,7 @@ export default function BudgetDashboard() {
     blockOnExceed: false
   })
   const [editingId, setEditingId] = useState(null)
+  const [budgetRule, setBudgetRule] = useState('50-30-20')
 
   const categories = ['Ăn uống', 'Di chuyển', 'Giải trí', 'Mua sắm', 'Sức khỏe', 'Học tập', 'Hóa đơn', 'Khác']
 
@@ -60,7 +60,7 @@ export default function BudgetDashboard() {
     try {
       const res = await fetch('/api/budget-summary')
       const data = await res.json()
-      setSummary(data)
+      setSummary(data.summary || null)
     } catch (error) {
       console.error('Error fetching summary:', error)
     } finally {
@@ -73,7 +73,7 @@ export default function BudgetDashboard() {
     try {
       const res = await fetch('/api/budgets')
       const data = await res.json()
-      setBudgets(data.budgets || [])
+      setBudgets(data.items || data.budgets || [])
     } catch (error) {
       console.error('Error fetching budgets:', error)
     } finally {
@@ -157,9 +157,32 @@ export default function BudgetDashboard() {
 
   const expenseCategoriesData = summary?.categories?.expenses || []
   const totalExpenseActual = summary?.totalExpenses || 0
-  const totalBudget = budgets.reduce((sum, b) => sum + (Number(b.amount) || 0), 0)
+  const totalIncomeActual = summary?.totalIncome || 0
+
+  // Ngân sách chuẩn cho chi tiêu nên dựa trên tổng thu nhập thực tế
+  // ưu tiên mức nhỏ hơn giữa (thu nhập thực tế) và (tổng hạn mức đã đặt)
+  // để tránh ảo tưởng ngân sách khi chưa có thu nhập vào.
+  const configuredBudget = budgets.reduce((sum, b) => sum + (Number(b.amount) || 0), 0)
+
+  const ruleConfig = {
+    '50-30-20': { needs: 0.5, wants: 0.3, savings: 0.2, spendable: 0.8 },
+    '60-20-20': { needs: 0.6, wants: 0.2, savings: 0.2, spendable: 0.8 },
+    '70-20-10': { needs: 0.7, wants: 0.2, savings: 0.1, spendable: 0.9 }
+  }
+  const selectedRule = ruleConfig[budgetRule]
+
+  const recommendedBudget = totalIncomeActual > 0 ? Math.round(totalIncomeActual * selectedRule.spendable) : 0
+  const totalBudget = configuredBudget > 0
+    ? (totalIncomeActual > 0 ? Math.min(configuredBudget, recommendedBudget) : configuredBudget)
+    : recommendedBudget
+
   const usedPercent = totalBudget > 0 ? Math.min(100, Math.round((totalExpenseActual / totalBudget) * 100)) : 0
   const remainBudget = Math.max(totalBudget - totalExpenseActual, 0)
+  const overBudgetAmount = Math.max(totalExpenseActual - totalBudget, 0)
+
+  const needsBudget = Math.round(totalIncomeActual * selectedRule.needs)
+  const wantsBudget = Math.round(totalIncomeActual * selectedRule.wants)
+  const savingsTarget = Math.round(totalIncomeActual * selectedRule.savings)
 
   const sixMonthTrend = useMemo(() => {
     const now = new Date()
@@ -214,7 +237,15 @@ export default function BudgetDashboard() {
         {activeTab === 'overview' && (
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
             <div className="md:col-span-4 bg-[rgba(45,52,73,0.6)] backdrop-blur-[20px] p-8 rounded-3xl border border-[#434656]/10">
-              <span className="text-[#c4c5d9] font-bold tracking-widest block mb-6 text-xs">TỔNG QUAN NGÂN SÁCH</span>
+              <span className="text-[#c4c5d9] font-bold tracking-widest block mb-4 text-xs">TỔNG QUAN NGÂN SÁCH</span>
+              <div className="mb-4">
+                <label className="text-[11px] text-[#c4c5d9] uppercase tracking-widest block mb-2">Quy tắc phân bổ</label>
+                <select value={budgetRule} onChange={(e) => setBudgetRule(e.target.value)} className="w-full bg-[#060e20] border border-[#434656]/20 rounded-lg px-3 py-2 text-sm">
+                  <option value="50-30-20">50/30/20 (cân bằng)</option>
+                  <option value="60-20-20">60/20/20 (ưu tiên nhu cầu)</option>
+                  <option value="70-20-10">70/20/10 (an toàn cao)</option>
+                </select>
+              </div>
               {loading ? (
                 <div className="text-[#8e90a2]">Đang tải dữ liệu...</div>
               ) : (
@@ -227,6 +258,24 @@ export default function BudgetDashboard() {
                     <div className="flex justify-between items-end"><span className="text-sm text-[#c4c5d9]">Tổng ngân sách</span><span className="text-lg font-bold">{formatCurrency(totalBudget)}</span></div>
                     <div className="h-2 w-full bg-[#060e20] rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-[#b8c3ff] to-[#2e5bff]" style={{ width: `${usedPercent}%` }} /></div>
                     <div className="flex justify-between text-xs font-bold tracking-wide"><span className="text-[#4edea3]">ĐÃ CHI: {formatCurrency(totalExpenseActual)}</span><span className="text-[#b8c3ff]">CÒN LẠI: {formatCurrency(remainBudget)}</span></div>
+                    {overBudgetAmount > 0 && (
+                      <div className="text-xs font-bold text-[#ffb3b6] bg-[#ffb3b6]/10 px-3 py-2 rounded-lg">Đang vượt ngân sách: {formatCurrency(overBudgetAmount)}</div>
+                    )}
+                  </div>
+
+                  <div className="mt-6 grid grid-cols-3 gap-2 text-[10px]">
+                    <div className="bg-[#060e20] rounded-lg px-2 py-2">
+                      <div className="text-[#c4c5d9]">Needs</div>
+                      <div className="font-bold text-[#dae2fd]">{formatCurrency(needsBudget)}</div>
+                    </div>
+                    <div className="bg-[#060e20] rounded-lg px-2 py-2">
+                      <div className="text-[#c4c5d9]">Wants</div>
+                      <div className="font-bold text-[#dae2fd]">{formatCurrency(wantsBudget)}</div>
+                    </div>
+                    <div className="bg-[#060e20] rounded-lg px-2 py-2">
+                      <div className="text-[#c4c5d9]">Savings</div>
+                      <div className="font-bold text-[#4edea3]">{formatCurrency(savingsTarget)}</div>
+                    </div>
                   </div>
                 </>
               )}

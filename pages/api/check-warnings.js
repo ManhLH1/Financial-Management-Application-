@@ -38,6 +38,7 @@ export default async function handler(req, res) {
       let level = 'normal'
       let shouldSendEmail = false
       
+      // Quy ước mới: auto gửi mail trước 3 ngày
       if (daysUntil <= 3 && daysUntil >= 0) {
         level = 'urgent'
         shouldSendEmail = true

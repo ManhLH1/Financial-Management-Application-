@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Notification, { useNotification } from '../components/Notification'
 import SpendingWarningModal from '../components/SpendingWarningModal'
 import AppShell from '../components/layout/AppShell'
+import { computeFinanceSummary } from '../lib/financeSummary'
 
 const expenseCategories = {
   'Ăn uống': 'restaurant',
@@ -273,12 +274,11 @@ export default function Expenses() {
     showNotification('💡 Hãy điều chỉnh số tiền phù hợp', 'info')
   }
 
-  const expenses = items.filter(i => i.type === 'expense')
-  const incomes = items.filter(i => i.type === 'income')
-
-  const totalExpense = expenses.reduce((sum, item) => sum + (item.amount || 0), 0)
-  const totalIncome = incomes.reduce((sum, item) => sum + (item.amount || 0), 0)
-  const balance = totalIncome - totalExpense
+  const summary = computeFinanceSummary(items, [])
+  const expenses = summary.expenseItems
+  const totalExpense = summary.totalExpense
+  const totalIncome = summary.totalIncome
+  const balance = summary.balance
 
   const categoryBreakdown = expenses.reduce((acc, item) => {
     acc[item.category] = (acc[item.category] || 0) + (item.amount || 0)
@@ -295,8 +295,8 @@ export default function Expenses() {
     [items, typeFilter, filter, searchTerm]
   )
 
-  const incomePercent = totalIncome > 0 ? Math.min(100, Math.round((totalIncome / (totalIncome + totalExpense || 1)) * 100)) : 0
-  const expensePercent = totalExpense > 0 ? Math.min(100, Math.round((totalExpense / (totalIncome + totalExpense || 1)) * 100)) : 0
+  const incomePercent = summary.incomePercent
+  const expensePercent = summary.expensePercent
 
   if (status === 'loading') {
     return (

@@ -3,6 +3,7 @@ import { useSession } from 'next-auth/react'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/router'
 import AppShell from '../components/layout/AppShell'
+import { computeFinanceSummary } from '../lib/financeSummary'
 
 const translations = {
   vi: {
@@ -183,7 +184,7 @@ export default function AdvancedDashboard() {
     try {
       const res = await fetch('/api/budgets')
       const data = await res.json()
-      setBudgets(data.budgets || [])
+      setBudgets(data.items || data.budgets || [])
     } catch (error) {
       console.error('Error fetching budgets:', error)
     }
@@ -194,14 +195,16 @@ export default function AdvancedDashboard() {
     [expenses, dateRange]
   )
 
+  const statsSummary = computeFinanceSummary(expenses, debts)
   const stats = {
-    totalExpense: filteredExpenses.filter(e => e.type === 'expense').reduce((sum, e) => sum + (e.amount || 0), 0),
-    totalIncome: filteredExpenses.filter(e => e.type === 'income').reduce((sum, e) => sum + (e.amount || 0), 0),
-    totalDebt: debts.filter(d => d.status !== 'paid').reduce((sum, d) => sum + (d.amount || 0), 0),
-    expenseCount: filteredExpenses.filter(e => e.type === 'expense').length,
-    incomeCount: filteredExpenses.filter(e => e.type === 'income').length
+    totalExpense: statsSummary.totalExpense,
+    totalIncome: statsSummary.totalIncome,
+    totalDebtFlow: statsSummary.debtFlow,
+    expenseCount: statsSummary.expenseCount,
+    incomeCount: statsSummary.incomeCount,
+    balance: statsSummary.balance,
+    netWorthApprox: statsSummary.netWorthApprox
   }
-  stats.balance = stats.totalIncome - stats.totalExpense
 
   const budgetWarnings = budgets.map(budget => {
     const categoryExpenses = filteredExpenses
@@ -299,7 +302,7 @@ export default function AdvancedDashboard() {
             <div className="absolute -right-20 -top-20 w-80 h-80 bg-[#2e5bff]/10 blur-[100px] rounded-full"></div>
             <div className="relative z-10">
               <p className="text-[0.75rem] font-semibold text-[#b8c3ff] uppercase tracking-[0.2em] mb-4">{t.totalAssets}</p>
-              <h2 className="text-6xl font-bold tracking-tighter mb-2">{formatMoney(stats.balance + stats.totalDebt)}</h2>
+              <h2 className="text-6xl font-bold tracking-tighter mb-2">{formatMoney(stats.netWorthApprox)}</h2>
               <div className="flex items-center gap-3 px-3 py-1 bg-[#4edea3]/10 border border-[#4edea3]/20 rounded-full w-fit">
                 <span className="material-symbols-outlined text-[#4edea3] text-sm">trending_up</span>
                 <span className="text-sm font-bold text-[#4edea3]">+{savingsRate}% {t.comparedLastMonth}</span>
@@ -339,7 +342,7 @@ export default function AdvancedDashboard() {
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard icon="payments" badge={t.expense} title={t.expenseTx} value={formatMoney(stats.totalExpense)} color="text-[#ffb3b6]" iconBg="bg-[#ffb3b6]/10" />
           <StatCard icon="account_balance" badge={t.income} title={t.incomeTx} value={formatMoney(stats.totalIncome)} color="text-[#4edea3]" iconBg="bg-[#4edea3]/10" />
-          <StatCard icon="credit_card" badge={t.debtBadge} title={t.debt} value={formatMoney(stats.totalDebt)} color="text-orange-400" iconBg="bg-orange-400/10" />
+          <StatCard icon="credit_card" badge={t.debtBadge} title={t.debt} value={formatMoney(Math.abs(stats.totalDebtFlow))} color={stats.totalDebtFlow >= 0 ? 'text-[#4edea3]' : 'text-orange-400'} iconBg={stats.totalDebtFlow >= 0 ? 'bg-[#4edea3]/10' : 'bg-orange-400/10'} />
           <StatCard icon="savings" badge={t.savingsBadge} title={t.savings} value={formatMoney(savingsValue)} color="text-[#b8c3ff]" iconBg="bg-[#b8c3ff]/10" />
         </section>
 
