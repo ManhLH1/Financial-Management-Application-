@@ -1,5 +1,5 @@
 import { getSheetsClient, getDriveClient } from './googleClient'
-import type { Exercise, WorkoutDay, WorkoutItem, WorkoutLog } from '../types/workout'
+import type { WorkoutDay, WorkoutItem, WorkoutLog } from '../types/workout'
 import type { Exercise as ExerciseType } from '../types/exercise'
 
 // Sheet names for workout data
@@ -51,7 +51,7 @@ export async function getOrCreateWorkoutSpreadsheet(accessToken: string, userEma
   // Create new spreadsheet
   const sheets = getSheetsClient(accessToken)
   const response = await sheets.spreadsheets.create({
-    resource: {
+    requestBody: {
       properties: {
         title: fileName,
       },
@@ -136,7 +136,7 @@ async function createSheet(accessToken: string, spreadsheetId: string, sheetTitl
   const sheets = getSheetsClient(accessToken)
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId,
-    resource: {
+    requestBody: {
       requests: [{
         addSheet: {
           properties: {
@@ -195,7 +195,7 @@ async function initializeSheetHeaders(accessToken: string, spreadsheetId: string
       spreadsheetId,
       range: `${sheetName}!A1:Z1`,
       valueInputOption: 'RAW',
-      resource: { values: headers }
+      requestBody: { values: headers }
     })
   }
 }
@@ -245,7 +245,7 @@ export async function addExerciseToSheet(
     spreadsheetId,
     range: `${WORKOUT_SHEETS.EXERCISES}!A:I`,
     valueInputOption: 'USER_ENTERED',
-    resource: { values }
+    requestBody: { values }
   })
 }
 
@@ -287,7 +287,7 @@ export async function updateExerciseInSheet(
     spreadsheetId,
     range: `${WORKOUT_SHEETS.EXERCISES}!A${rowNumber}:I${rowNumber}`,
     valueInputOption: 'USER_ENTERED',
-    resource: { values: [updatedRow] }
+    requestBody: { values: [updatedRow] }
   })
 }
 
@@ -313,7 +313,7 @@ export async function deleteExerciseFromSheet(
   // Delete the row
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId,
-    resource: {
+    requestBody: {
       requests: [{
         deleteDimension: {
           range: {
@@ -371,7 +371,7 @@ export async function addWorkoutDayToSheet(
     spreadsheetId,
     range: `${WORKOUT_SHEETS.WORKOUT_DAYS}!A:E`,
     valueInputOption: 'USER_ENTERED',
-    resource: { values }
+    requestBody: { values }
   })
 }
 
@@ -424,7 +424,7 @@ export async function addWorkoutItemToSheet(
     spreadsheetId,
     range: `${WORKOUT_SHEETS.WORKOUT_ITEMS}!A:H`,
     valueInputOption: 'USER_ENTERED',
-    resource: { values }
+    requestBody: { values }
   })
 }
 
@@ -464,7 +464,7 @@ export async function updateWorkoutItemInSheet(
     spreadsheetId,
     range: `${WORKOUT_SHEETS.WORKOUT_ITEMS}!A${rowNumber}:H${rowNumber}`,
     valueInputOption: 'USER_ENTERED',
-    resource: { values: [updatedRow] }
+    requestBody: { values: [updatedRow] }
   })
 }
 
@@ -489,7 +489,7 @@ export async function deleteWorkoutItemFromSheet(
 
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId,
-    resource: {
+    requestBody: {
       requests: [{
         deleteDimension: {
           range: {
@@ -530,7 +530,7 @@ export async function addWorkoutLogToSheet(
     spreadsheetId,
     range: `${WORKOUT_SHEETS.WORKOUT_LOGS}!A:K`,
     valueInputOption: 'USER_ENTERED',
-    resource: { values }
+    requestBody: { values }
   })
 }
 

@@ -36,7 +36,7 @@ export default function WorkoutDashboard() {
   }, [darkMode])
 
   useEffect(() => {
-    if (session?.accessToken) {
+    if (session) {
       loadStatistics()
     }
   }, [session])

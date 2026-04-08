@@ -7,6 +7,7 @@ import {
 } from '../../../lib/workoutSheetsHelper'
 import { workoutItemSchema } from '../../../lib/validators'
 import { v4 as uuidv4 } from 'uuid'
+import type { WorkoutItem } from '../../../types/workout'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getServerSession(req, res, authOptions)
@@ -29,12 +30,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'day_id is required' })
       }
 
-      const item = {
+      const item: Omit<WorkoutItem, 'created_at'> = {
         id: uuidv4(),
-        day_id,
-        ...validated,
-        target_weight: validated.target_weight || undefined,
-        target_duration: validated.target_duration || undefined
+        day_id: String(day_id),
+        exercise_id: validated.exercise_id,
+        target_sets: validated.target_sets,
+        target_reps: validated.target_reps,
+        target_weight: validated.target_weight ?? undefined,
+        target_duration: validated.target_duration ?? undefined
       }
       
       await addWorkoutItemToSheet(accessToken, spreadsheetId, item)

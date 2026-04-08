@@ -9,6 +9,7 @@ import {
 } from '../../../lib/workoutSheetsHelper'
 import { workoutDaySchema } from '../../../lib/validators'
 import { v4 as uuidv4 } from 'uuid'
+import type { WorkoutDay } from '../../../types/workout'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getServerSession(req, res, authOptions)
@@ -40,11 +41,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method === 'POST') {
       const validated = workoutDaySchema.parse(req.body)
-      const day = {
+      const day: Omit<WorkoutDay, 'created_at'> = {
         id: uuidv4(),
-        user_id: userId,
-        ...validated,
-        note: validated.note || undefined
+        user_id: String(userId),
+        day_of_week: validated.day_of_week,
+        note: validated.note ?? undefined
       }
       
       await addWorkoutDayToSheet(accessToken, spreadsheetId, day)

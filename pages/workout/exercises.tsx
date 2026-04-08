@@ -39,7 +39,7 @@ export default function ExercisesPage() {
   }, [darkMode])
 
   useEffect(() => {
-    if (session?.accessToken) {
+    if (session) {
       loadExercises()
     }
   }, [session])

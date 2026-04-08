@@ -4,6 +4,7 @@ import { authOptions } from '../auth/[...nextauth]'
 import { getOrCreateWorkoutSpreadsheet, getExercisesFromSheet, addExerciseToSheet } from '../../../lib/workoutSheetsHelper'
 import { exerciseSchema } from '../../../lib/validators'
 import { v4 as uuidv4 } from 'uuid'
+import type { Exercise } from '../../../types/exercise'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getServerSession(req, res, authOptions)
@@ -25,14 +26,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method === 'POST') {
       const validated = exerciseSchema.parse(req.body)
-      const exercise = {
+      const exercise: Omit<Exercise, 'created_at'> = {
         id: uuidv4(),
-        ...validated,
+        name: validated.name,
+        muscle_group: validated.muscle_group,
+        level: validated.level,
+        equipment: validated.equipment,
         media_url: validated.media_url || undefined,
         description: validated.description || undefined,
         mistakes: validated.mistakes || undefined
       }
-      
+
       await addExerciseToSheet(accessToken, spreadsheetId, exercise)
       return res.status(201).json(exercise)
     }

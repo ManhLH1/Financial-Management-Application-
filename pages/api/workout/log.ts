@@ -8,6 +8,7 @@ import {
 } from '../../../lib/workoutSheetsHelper'
 import { workoutLogSchema } from '../../../lib/validators'
 import { v4 as uuidv4 } from 'uuid'
+import type { WorkoutLog } from '../../../types/workout'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getServerSession(req, res, authOptions)
@@ -25,13 +26,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method === 'POST') {
       const validated = workoutLogSchema.parse(req.body)
-      const log = {
+      const log: Omit<WorkoutLog, 'created_at'> = {
         id: uuidv4(),
-        user_id: userId,
-        ...validated,
-        actual_weight: validated.actual_weight || undefined,
-        actual_duration: validated.actual_duration || undefined,
-        note: validated.note || undefined
+        user_id: String(userId),
+        exercise_id: validated.exercise_id,
+        date: validated.date,
+        actual_sets: validated.actual_sets,
+        actual_reps: validated.actual_reps,
+        actual_weight: validated.actual_weight ?? undefined,
+        actual_duration: validated.actual_duration ?? undefined,
+        rating: validated.rating,
+        note: validated.note ?? undefined
       }
       
       await addWorkoutLogToSheet(accessToken, spreadsheetId, log)

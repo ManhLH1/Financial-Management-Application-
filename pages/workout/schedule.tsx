@@ -31,7 +31,7 @@ export default function WorkoutSchedulePage() {
   }, [status, router])
 
   useEffect(() => {
-    if (session?.accessToken) {
+    if (session) {
       loadData()
     }
   }, [session])

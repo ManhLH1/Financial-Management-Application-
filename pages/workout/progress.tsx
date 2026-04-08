@@ -33,7 +33,7 @@ export default function ProgressPage() {
   }, [darkMode])
 
   useEffect(() => {
-    if (session?.accessToken) {
+    if (session) {
       loadStatistics()
     }
   }, [session])

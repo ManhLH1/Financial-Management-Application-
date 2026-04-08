@@ -38,7 +38,7 @@ export default function WorkoutLogsPage() {
   }, [darkMode])
 
   useEffect(() => {
-    if (session?.accessToken) {
+    if (session) {
       loadData()
     }
   }, [session])
