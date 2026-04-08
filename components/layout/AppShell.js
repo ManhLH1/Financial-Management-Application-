@@ -6,7 +6,6 @@ const navItems = [
   { href: '/expenses', icon: 'receipt_long', label: 'Giao dịch', key: 'expenses' },
   { href: '/budget-dashboard', icon: 'account_balance_wallet', label: 'Ngân sách', key: 'budgets' },
   { href: '/transaction-history', icon: 'analytics', label: 'Báo cáo', key: 'reports' },
-  { href: '/debts', icon: 'credit_card', label: 'Khoản nợ', key: 'debts' },
   { href: '/vocabulary', icon: 'menu_book', label: 'Học từ', key: 'vocabulary' },
   { href: '/workout/dashboard', icon: 'fitness_center', label: 'Gym', key: 'gym' }
 ]

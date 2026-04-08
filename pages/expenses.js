@@ -40,7 +40,8 @@ export default function Expenses() {
     category: 'Ăn uống',
     date: new Date().toISOString().split('T')[0],
     type: 'expense',
-    customCategory: ''
+    customCategory: '',
+    debtId: ''
   })
 
   const [editingId, setEditingId] = useState(null)
@@ -51,6 +52,7 @@ export default function Expenses() {
   const [showWarningModal, setShowWarningModal] = useState(false)
   const [warningData, setWarningData] = useState(null)
   const [pendingExpense, setPendingExpense] = useState(null)
+  const [debts, setDebts] = useState([])
 
   const { notification, showNotification, hideNotification } = useNotification()
 
@@ -75,6 +77,7 @@ export default function Expenses() {
       }
     }
     fetchItems()
+    fetchDebts()
   }, [status])
 
   async function fetchItems() {
@@ -93,6 +96,16 @@ export default function Expenses() {
     }
   }
 
+  async function fetchDebts() {
+    try {
+      const res = await fetch('/api/debts')
+      const data = await res.json()
+      setDebts((data.items || data.notes || []).filter(d => d.status !== 'paid'))
+    } catch (error) {
+      console.error('Error fetching debts:', error)
+    }
+  }
+
   function editItem(item) {
     setEditingId(item.id)
     setForm({
@@ -101,7 +114,8 @@ export default function Expenses() {
       category: item.category || 'Ăn uống',
       date: item.date?.split('T')[0] || new Date().toISOString().split('T')[0],
       type: item.type || 'expense',
-      customCategory: ''
+      customCategory: '',
+      debtId: ''
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -114,7 +128,8 @@ export default function Expenses() {
       category: 'Ăn uống',
       date: new Date().toISOString().split('T')[0],
       type: 'expense',
-      customCategory: ''
+      customCategory: '',
+      debtId: ''
     })
   }
 
@@ -157,6 +172,11 @@ export default function Expenses() {
 
     if (form.category === 'Khác' && !form.customCategory) {
       showNotification('⚠️ Vui lòng nhập danh mục khác!', 'warning')
+      return
+    }
+
+    if (form.type === 'expense' && form.category === 'Trả nợ' && !form.debtId) {
+      showNotification('⚠️ Vui lòng chọn khoản vay cần trả!', 'warning')
       return
     }
 
@@ -217,7 +237,8 @@ export default function Expenses() {
             amount: Number(form.amount),
             category: finalCategory,
             date: form.date,
-            type: form.type
+            type: form.type,
+            debtId: form.type === 'expense' && form.category === 'Trả nợ' ? form.debtId || '' : ''
           })
         })
 
@@ -235,7 +256,8 @@ export default function Expenses() {
             amount: Number(form.amount),
             category: finalCategory,
             date: form.date,
-            type: form.type
+            type: form.type,
+            debtId: form.type === 'expense' && form.category === 'Trả nợ' ? form.debtId || '' : ''
           })
         })
 
@@ -510,7 +532,7 @@ export default function Expenses() {
                       value={form.category}
                       onChange={(e) => setForm(prev => ({ ...prev, category: e.target.value, customCategory: '' }))}
                     >
-                      {(form.type === 'expense' ? Object.keys(expenseCategories) : Object.keys(incomeCategories)).map(cat => (
+                      {(form.type === 'expense' ? [...Object.keys(expenseCategories), 'Trả nợ'] : Object.keys(incomeCategories)).map(cat => (
                         <option key={cat} value={cat}>{cat}</option>
                       ))}
                     </select>
@@ -535,6 +557,21 @@ export default function Expenses() {
                       onChange={(e) => setForm(prev => ({ ...prev, customCategory: e.target.value }))}
                       type="text"
                     />
+                  </Field>
+                )}
+
+                {form.type === 'expense' && form.category === 'Trả nợ' && (
+                  <Field label="Khoản vay cần trả">
+                    <select
+                      className="w-full bg-[#060e20] border-none rounded-xl py-3 px-4 text-sm focus:ring-1 focus:ring-[#b8c3ff]/40"
+                      value={form.debtId}
+                      onChange={(e) => setForm(prev => ({ ...prev, debtId: e.target.value }))}
+                    >
+                      <option value="">-- Chọn khoản vay --</option>
+                      {debts.filter(d => d.status === 'i-owe').map(debt => (
+                        <option key={debt.id} value={debt.id}>{debt.person} • {Number(debt.amount || 0).toLocaleString('vi-VN')}₫</option>
+                      ))}
+                    </select>
                   </Field>
                 )}
 

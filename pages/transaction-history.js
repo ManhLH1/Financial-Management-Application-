@@ -57,7 +57,7 @@ export default function TransactionHistory() {
       const expensesData = await expensesRes.json()
       const debtsData = await debtsRes.json()
       setExpenses(expensesData.items || expensesData.notes || [])
-      setDebts(debtsData.notes || [])
+      setDebts(debtsData.items || debtsData.notes || [])
     } catch (error) {
       console.error('Error fetching data:', error)
       showNotification('Lỗi khi tải dữ liệu', 'error')

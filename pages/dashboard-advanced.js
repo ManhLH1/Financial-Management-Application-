@@ -25,7 +25,7 @@ const translations = {
     aiDetail: 'Xem chi tiết phân tích',
     expenseTx: 'Giao dịch chi',
     incomeTx: 'Giao dịch thu',
-    debt: 'Khoản nợ',
+    debt: 'Tổng phải trả hằng tháng',
     savings: 'Tiết kiệm',
     expense: 'Expense',
     income: 'Income',
@@ -166,7 +166,7 @@ export default function AdvancedDashboard() {
       const debtData = await debtRes.json()
 
       const expensesList = expData.items || []
-      const debtsList = debtData.notes || []
+      const debtsList = debtData.items || debtData.notes || []
 
       setExpenses(expensesList)
       setDebts(debtsList)
@@ -196,6 +196,23 @@ export default function AdvancedDashboard() {
   )
 
   const statsSummary = computeFinanceSummary(expenses, debts)
+  const monthlyDebtPayable = useMemo(() => {
+    return debts.reduce((sum, debt) => {
+      const isPayableDebt = debt.status === 'i-owe' && debt.status !== 'paid'
+      if (!isPayableDebt) return sum
+
+      const monthlyPayment = Math.max(0, Number(debt.monthlyPayment || 0))
+      const totalPeriods = Math.max(1, Number(debt.totalPeriods || 1))
+      const amount = Math.max(0, Number(debt.amount || 0))
+
+      if (totalPeriods > 1 || monthlyPayment > 0) {
+        return sum + monthlyPayment
+      }
+
+      return sum + amount
+    }, 0)
+  }, [debts])
+
   const stats = {
     totalExpense: statsSummary.totalExpense,
     totalIncome: statsSummary.totalIncome,
@@ -203,7 +220,8 @@ export default function AdvancedDashboard() {
     expenseCount: statsSummary.expenseCount,
     incomeCount: statsSummary.incomeCount,
     balance: statsSummary.balance,
-    netWorthApprox: statsSummary.netWorthApprox
+    netWorthApprox: statsSummary.netWorthApprox,
+    monthlyDebtPayable
   }
 
   const budgetWarnings = budgets.map(budget => {
@@ -342,7 +360,7 @@ export default function AdvancedDashboard() {
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard icon="payments" badge={t.expense} title={t.expenseTx} value={formatMoney(stats.totalExpense)} color="text-[#ffb3b6]" iconBg="bg-[#ffb3b6]/10" />
           <StatCard icon="account_balance" badge={t.income} title={t.incomeTx} value={formatMoney(stats.totalIncome)} color="text-[#4edea3]" iconBg="bg-[#4edea3]/10" />
-          <StatCard icon="credit_card" badge={t.debtBadge} title={t.debt} value={formatMoney(Math.abs(stats.totalDebtFlow))} color={stats.totalDebtFlow >= 0 ? 'text-[#4edea3]' : 'text-orange-400'} iconBg={stats.totalDebtFlow >= 0 ? 'bg-[#4edea3]/10' : 'bg-orange-400/10'} />
+          <StatCard icon="credit_card" badge={t.debtBadge} title={t.debt} value={formatMoney(stats.monthlyDebtPayable)} color="text-orange-400" iconBg="bg-orange-400/10" />
           <StatCard icon="savings" badge={t.savingsBadge} title={t.savings} value={formatMoney(savingsValue)} color="text-[#b8c3ff]" iconBg="bg-[#b8c3ff]/10" />
         </section>
 
